@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-weight: 400;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #121212, #1a1a2e);
+        }
+        
+        .card-hover {
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        
+        .progress-bar {
+            height: 6px;
+            border-radius: 3px;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        
+        .subject-selector {
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .subject-selector:hover {
+            background-color: rgba(255, 255, 255, 0.08);
+            transform: translateX(4px);
+        }
+        
+        .subject-selector.selected {
+            background-color: rgba(255, 255, 255, 0.12);
+            border-left: 4px solid #4f46e5;
+            transform: translateX(4px);
+        }
+        
+        .result-card {
+            animation: cardEnter 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        
+        @keyframes cardEnter {
+            0% {
+                opacity: 0;
+                transform: translateY(20px) scale(0.98);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        .glow {
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes glow {
+            from {
+                box-shadow: 0 0 5px rgba(255, 255, 255, 0.1);
+            }
+            to {
+                box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+            }
+        }
+        
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+        
+        .text-gradient {
+            background: linear-gradient(90deg, #a5b4fc, #818cf8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen text-white">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="text-center mb-16">
+            <div class="inline-block mb-6">
+                <div class="bg-white/5 backdrop-blur-lg rounded-full p-4 shadow-lg glow">
+                    <i class="fas fa-calendar-check text-3xl text-gradient"></i>
+                </div>
+            </div>
+            <h1 class="text-5xl md:text-6xl font-bold mb-4 text-gradient">Attendance Pro</h1>
+            <p class="text-xl opacity-90 max-w-2xl mx-auto">Precision tracking for academic excellence. Calculate, optimize, and maintain your perfect attendance.</p>
+        </header>
+
+        <!-- Main App Container -->
+        <div class="flex flex-col lg:flex-row gap-8">
+            <!-- Left Panel - Subjects List -->
+            <div class="lg:w-1/4 bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg">
+                <h2 class="text-2xl font-bold mb-6 text-center">Your Subjects</h2>
+                <div class="space-y-2" id="subjectsList">
+                    <!-- Subjects will be added here by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Right Panel - Main Content -->
+            <div class="lg:w-3/4 bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg">
+                <!-- Mode Selection -->
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold mb-4">Select Calculation Type</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button onclick="setMode('attend-single')" class="card-hover bg-white/10 hover:bg-white/20 rounded-lg p-4 text-left transition-all">
+                            <i class="fas fa-user-graduate text-2xl mb-2"></i>
+                            <h3 class="font-bold text-lg">Selected Subjects Attendance</h3>
+                            <p class="text-sm opacity-80">Calculate how many more classes you need to attend</p>
+                        </button>
+                        <button onclick="setMode('attend-all')" class="card-hover bg-white/10 hover:bg-white/20 rounded-lg p-4 text-left transition-all">
+                            <i class="fas fa-users text-2xl mb-2"></i>
+                            <h3 class="font-bold text-lg">All Subjects Attendance</h3>
+                            <p class="text-sm opacity-80">Calculate total classes needed across all subjects</p>
+                        </button>
+                        <button onclick="setMode('bunk-single')" class="card-hover bg-white/10 hover:bg-white/20 rounded-lg p-4 text-left transition-all">
+                            <i class="fas fa-bed text-2xl mb-2"></i>
+                            <h3 class="font-bold text-lg">Selected Subjects Bunk</h3>
+                            <p class="text-sm opacity-80">Calculate how many classes you can safely bunk</p>
+                        </button>
+                        <button onclick="setMode('bunk-all')" class="card-hover bg-white/10 hover:bg-white/20 rounded-lg p-4 text-left transition-all">
+                            <i class="fas fa-couch text-2xl mb-2"></i>
+                            <h3 class="font-bold text-lg">All Subjects Bunk</h3>
+                            <p class="text-sm opacity-80">Calculate bunkable classes across all subjects</p>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Input Form (changes based on mode) -->
+                <div id="inputForm" class="mb-8">
+                    <!-- Form will be generated by JavaScript based on mode -->
+                </div>
+
+                <!-- Results Display -->
+                <div id="resultsContainer" class="hidden">
+                    <h2 class="text-2xl font-bold mb-4">Results</h2>
+                    <div id="resultsContent" class="space-y-4">
+                        <!-- Results will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Subject data
+        const subjects = [
+            "FRONT END UI/UX DEVELOPMENT",
+            "DIGITAL SYSTEMS AND COMPUTER ARCHITECTURE",
+            "DISCRETE MATHEMATICS",
+            "HOLISTIC EDUCATION DEVELOPMENT II",
+            "DATA STRUCTURES",
+            "ENTREPRENEURSHIP AND IPR",
+            "OBJECT ORIENTED PROGRAMMING",
+            "HONOURS/MINORS",
+            "PYTHON PROGRAMMING",
+            "ABILITY ENHANCEMENT COURSE III"
+        ];
+        // Current state
+        let currentMode = '';
+        let selectedSubjects = []; // Array to track multiple selections
+        let allSubjectData = {};
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function() {
+            renderSubjectsList();
+            setMode('attend-single');
+        });
+        // Render subjects list
+        function renderSubjectsList() {
+            const container = document.getElementById('subjectsList');
+            container.innerHTML = '';
+            
+            subjects.forEach((subject, index) => {
+                const div = document.createElement('div');
+                div.className = `subject-selector p-3 rounded-lg cursor-pointer ${selectedSubjects.includes(index) ? 'selected' : ''}`;
+                div.innerHTML = `
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center mr-3">
+                            ${index + 1}
+                        </div>
+                        <div class="truncate">${subject}</div>
+                    </div>
+                `;
+                div.addEventListener('click', () => selectSubject(index));
+                container.appendChild(div);
+            });
+        }
+        // Select/deselect a subject
+        function selectSubject(index) {
+            const subjectIndex = selectedSubjects.indexOf(index);
+            if (subjectIndex === -1) {
+                selectedSubjects.push(index);
+            } else {
+                selectedSubjects.splice(subjectIndex, 1);
+            }
+            renderSubjectsList();
+            renderInputForm();
+        }
+        // Set calculation mode
+        function setMode(mode) {
+            currentMode = mode;
+            document.getElementById('resultsContainer').classList.add('hidden');
+            renderInputForm();
+        }
+        // Render the appropriate input form based on mode
+        function renderInputForm() {
+            const formContainer = document.getElementById('inputForm');
+            
+            if (currentMode.includes('single') && selectedSubjects.length === 0) {
+                formContainer.innerHTML = `
+                    <div class="bg-white/10 p-4 rounded-lg text-center">
+                        <i class="fas fa-hand-pointer text-2xl mb-2"></i>
+                        <p>Please select one or more subjects from the left panel</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            if (currentMode === 'attend-single') {
+                formContainer.innerHTML = `
+                    <div class="space-y-6">
+                        ${selectedSubjects.map(index => `
+                            <div class="bg-white/5 backdrop-blur-lg p-6 rounded-xl border border-white/10 shadow-xl">
+                                <h3 class="text-xl font-bold mb-4">${subjects[index]}</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block mb-2">Hours Attended</label>
+                                        <input type="number" id="attended-${index}" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-white/50" placeholder="e.g. 15">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-2">Total Classes</label>
+                                        <input type="number" id="total-${index}" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-white/50" placeholder="e.g. 20">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-2">Required Percentage</label>
+                                        <input type="number" id="requiredPerc-${index}" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-white/50" placeholder="e.g. 75" min="1" max="99">
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                        <button onclick="calculateSingleAttendance()" class="mt-6 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold py-3 px-8 rounded-full hover:shadow-lg transition-all transform hover:scale-105">
+                            <span class="flex items-center justify-center">
+                                Calculate All <i class="fas fa-calculator ml-3"></i>
+                            </span>
+                        </button>
+                    </div>
+                `;
+            } 
+            else if (currentMode === 'attend-all') {
+                formContainer.innerHTML = `
+                    <div class="bg-white/10 p-6 rounded-lg">
+                        <h3 class="text-xl font-bold mb-4">All Subjects Attendance</h3>
+                        <p class="mb-4">Enter attendance data for each subject:</p>
+                        
+                        <div id="allSubjectsInputs" class="space-y-4">
+                            ${subjects.map((subject, index) => `
+                                <div class="bg-white/5 p-4 rounded-lg">
+                                    <h4 class="font-medium mb-3">${subject}</h4>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <label class="block mb-1 text-sm">Hours Attended</label>
+                                            <input type="number" data-subject="${index}" data-type="attended" class="subject-input w-full bg-white/20 border border-white/30 rounded-lg px-3 py-1 focus:outline-none focus:ring-2 focus:ring-white/50" placeholder="Attended">
+                                        </div>
+                                        <div>
+                                            <label class="block mb-1 text-sm">Total Classes</label>
+                                            <input type="number" data-subject="${index}" data-type="total" class="subject-input w-full bg-white/20 border border-white/30 rounded-lg px-3 py-1 focus:outline-none focus:ring-2 focus:ring-white/50" placeholder="Total">
+                                        </div>
+                                        <div>
+                                            <label class="block mb-1 text-sm">Required %</label>
+                                            <input type="number" data-subject="${index}" data-type="requiredPerc" class="subject-input w-full bg-white/20 border border-white/30 rounded-lg px-3 py-1 focus:outline-none focus:ring-2 focus:ring-white/50" placeholder="Required %" min="1" max="99">
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        
+                        <button onclick="calculateAllAttendance()" class="mt-6 bg-white text-purple-600 font-bold py-2 px-6 rounded-lg hover:bg-purple-100 transition-all">
+                            Calculate All <i class="fas fa-calculator ml-2"></i>
+                        </button>
+                    </div>
+                `;
+            }
+            else if (currentMode === 'bunk-single') {
+                formContainer.innerHTML = `
+                    <div class="space-y-6">
+                        ${selectedSubjects.map(index => `
+                            <div class="bg-white/5 backdrop-blur-lg p-6 rounded-xl border border-white/10 shadow-xl">
+                                <h3 class="text-xl font-bold mb-4">${subjects[index]}</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block mb-2">Hours Attended</label>
+                                        <input type="number" id="bunkAttended-${index}" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-white/50" placeholder="e.g. 15">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-2">Total Classes</label>
+                                        <input type="number" id="bunkTotal-${index}" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-white/50" placeholder="e.g. 20">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-2">Minimum Required Percentage</label>
+                                        <input type="number" id="bunkRequiredPerc-${index}" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-white/50" placeholder="e.g. 75" min="1" max="99">
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                        <button onclick="calculateSingleBunk()" class="mt-6 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold py-3 px-8 rounded-full hover:shadow-lg transition-all transform hover:scale-105">
+                            <span class="flex items-center justify-center">
+                                Calculate All <i class="fas fa-bed ml-3"></i>
+                            </span>
+                        </button>
+                    </div>
+                `;
+            }
+            else if (currentMode === 'bunk-all') {
+                formContainer.innerHTML = `
+                    <div class="bg-white/10 p-6 rounded-lg">
+                        <h3 class="text-xl font-bold mb-4">All Subjects Bunk Calculation</h3>
+                        <p class="mb-4">Enter attendance data for each subject:</p>
+                        
+                        <div id="allBunkInputs" class="space-y-4">
+                            ${subjects.map((subject, index) => `
+                                <div class="bg-white/5 p-4 rounded-lg">
+                                    <h4 class="font-medium mb-3">${subject}</h4>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <label class="block mb-1 text-sm">Hours Attended</label>
+                                            <input type="number" data-subject="${index}" data-type="bunkAttended" class="bunk-input w-full bg-white/20 border border-white/30 rounded-lg px-3 py-1 focus:outline-none focus:ring-2 focus:ring-white/50" placeholder="Attended">
+                                        </div>
+                                        <div>
+                                            <label class="block mb-1 text-sm">Total Classes</label>
+                                            <input type="number" data-subject="${index}" data-type="bunkTotal" class="bunk-input w-full bg-white/20 border border-white/30 rounded-lg px-3 py-1 focus:outline-none focus:ring-2 focus:ring-white/50" placeholder="Total">
+                                        </div>
+                                        <div>
+                                            <label class="block mb-1 text-sm">Minimum %</label>
+                                            <input type="number" data-subject="${index}" data-type="bunkRequiredPerc" class="bunk-input w-full bg-white/20 border border-white/30 rounded-lg px-3 py-1 focus:outline-none focus:ring-2 focus:ring-white/50" placeholder="Required %" min="1" max="99">
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        
+                        <button onclick="calculateAllBunk()" class="mt-6 bg-white text-purple-600 font-bold py-2 px-6 rounded-lg hover:bg-purple-100 transition-all">
+                            Calculate All Bunks <i class="fas fa-couch ml-2"></i>
+                        </button>
+                    </div>
+                `;
+            }
+        }
+        // Calculate attendance for selected subjects
+        function calculateSingleAttendance() {
+            let resultsHTML = '';
+            let totalClassesNeeded = 0;
+            let validSubjects = 0;
+            
+            selectedSubjects.forEach(index => {
+                const attended = parseFloat(document.getElementById(`attended-${index}`).value);
+                const total = parseFloat(document.getElementById(`total-${index}`).value);
+                const requiredPerc = parseFloat(document.getElementById(`requiredPerc-${index}`).value);
+                
+                if (isNaN(attended) || isNaN(total) || isNaN(requiredPerc)) {
+                    resultsHTML += `
+                        <div class="result-card bg-white/10 p-4 rounded-lg mb-4">
+                            <div class="flex items-start">
+                                <div class="bg-red-400/20 p-2 rounded-lg mr-4">
+                                    <i class="fas fa-exclamation-circle text-red-400"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold">${subjects[index]}</h4>
+                                    <p>Please fill in all fields with valid numbers.</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                if (requiredPerc >= 100) {
+                    resultsHTML += `
+                        <div class="result-card bg-white/10 p-4 rounded-lg mb-4">
+                            <div class="flex items-start">
+                                <div class="bg-yellow-400/20 p-2 rounded-lg mr-4">
+                                    <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold">${subjects[index]}</h4>
+                                    <p>100% attendance is not achievable for this subject.</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const currentPerc = (attended / total) * 100;
+                let futureAttended = attended;
+                let futureTotal = total;
+                
+                while ((futureAttended / futureTotal) * 100 < requiredPerc) {
+                    futureAttended += 1;
+                    futureTotal += 1;
+                }
+                
+                const classesNeeded = futureTotal - total;
+                totalClassesNeeded += classesNeeded;
+                const newPerc = (futureAttended / futureTotal) * 100;
+                validSubjects++;
+                
+                resultsHTML += `
+                    <div class="result-card bg-white/10 p-6 rounded-lg mb-4">
+                        <h3 class="text-xl font-bold mb-4">${subjects[index]}</h3>
+                        
+                        <div class="mb-6">
+                            <div class="flex justify-between mb-1">
+                                <span>Current: ${currentPerc.toFixed(2)}%</span>
+                                <span>Target: ${requiredPerc}%</span>
+                            </div>
+                            <div class="progress-bar mb-2">
+                                <div class="progress-fill bg-purple-400" style="width: ${Math.min(currentPerc, 100)}%"></div>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill bg-green-400" style="width: ${requiredPerc}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-white/5 p-4 rounded-lg">
+                                <h4 class="font-medium mb-2">Current Status</h4>
+                                <p><span class="font-bold">${attended}</span> attended / <span class="font-bold">${total}</span> total</p>
+                                <p><span class="font-bold">${currentPerc.toFixed(2)}%</span> attendance</p>
+                            </div>
+                            <div class="bg-white/5 p-4 rounded-lg">
+                                <h4 class="font-medium mb-2">Target Status</h4>
+                                <p><span class="font-bold">${futureAttended}</span> attended / <span class="font-bold">${futureTotal}</span> total</p>
+                                <p><span class="font-bold">${newPerc.toFixed(2)}%</span> attendance</p>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-6 p-4 bg-green-400/20 rounded-lg border border-green-400/30">
+                            <i class="fas fa-check-circle mr-2"></i>
+                            You need to attend <span class="font-bold">${classesNeeded}</span> more classes to achieve ${requiredPerc}% attendance.
+                        </div>
+                    </div>
+                `;
+            });
+            
+            if (selectedSubjects.length > 0 && validSubjects > 0) {
+                resultsHTML += `
+                    <div class="result-card bg-white/10 p-6 rounded-lg mt-6 border border-white/20">
+                        <div class="text-center">
+                            <h3 class="text-xl font-bold mb-2">Summary for Selected Subjects</h3>
+                            <div class="bg-purple-500/20 p-4 rounded-lg inline-block">
+                                <div class="text-3xl font-bold">${totalClassesNeeded}</div>
+                                <div class="text-sm">Total Classes Needed Across All Selected Subjects</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            showResults(resultsHTML);
+        }
+        // Calculate all subjects attendance
+        function calculateAllAttendance() {
+            const inputs = document.querySelectorAll('.subject-input');
+            const subjectData = {};
+            
+            // Collect all subject data
+            inputs.forEach(input => {
+                const subjectIndex = input.dataset.subject;
+                const type = input.dataset.type;
+                const value = parseFloat(input.value);
+                
+                if (!subjectData[subjectIndex]) {
+                    subjectData[subjectIndex] = {};
+                }
+                
+                subjectData[subjectIndex][type] = isNaN(value) ? 0 : value;
+            });
+            
+            // Process each subject
+            let totalClassesNeeded = 0;
+            let resultsHTML = '';
+            let validSubjects = 0;
+            let sumPerc = 0;
+            
+            for (const [index, data] of Object.entries(subjectData)) {
+                if (!data.attended || !data.total || !data.requiredPerc) continue;
+                
+                if (data.requiredPerc >= 100) {
+                    resultsHTML += `
+                        <div class="result-card bg-white/10 p-4 rounded-lg mb-4">
+                            <div class="flex items-start">
+                                <div class="bg-yellow-400/20 p-2 rounded-lg mr-4">
+                                    <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold">${subjects[index]}</h4>
+                                    <p>100% attendance is not achievable for this subject.</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    continue;
+                }
+                
+                const currentPerc = (data.attended / data.total) * 100;
+                let futureAttended = data.attended;
+                let futureTotal = data.total;
+                
+                while ((futureAttended / futureTotal) * 100 < data.requiredPerc) {
+                    futureAttended += 1;
+                    futureTotal += 1;
+                }
+                
+                const classesNeeded = futureTotal - data.total;
+                totalClassesNeeded += classesNeeded;
+                const newPerc = (futureAttended / futureTotal) * 100;
+                sumPerc += newPerc;
+                validSubjects++;
+                
+                resultsHTML += `
+                    <div class="result-card bg-white/10 p-4 rounded-lg mb-4">
+                        <h4 class="font-bold mb-2">${subjects[index]}</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+                            <div>
+                                <p class="text-sm">Current: ${data.attended}/${data.total} (${currentPerc.toFixed(2)}%)</p>
+                                <div class="progress-bar">
+                                    <div class="progress-fill bg-purple-400" style="width: ${Math.min(currentPerc, 100)}%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <p class="text-sm">Target: ${futureAttended}/${futureTotal} (${newPerc.toFixed(2)}%)</p>
+                                <div class="progress-bar">
+                                    <div class="progress-fill bg-green-400" style="width: ${data.requiredPerc}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="text-sm bg-green-400/10 p-2 rounded"><i class="fas fa-check-circle mr-1"></i> Need to attend <span class="font-bold">${classesNeeded}</span> more classes</p>
+                    </div>
+                `;
+            }
+            
+            if (validSubjects > 0) {
+                const avgPerc = sumPerc / validSubjects;
+                
+                resultsHTML += `
+                    <div class="result-card bg-white/10 p-6 rounded-lg mt-6 border border-white/20">
+                        <div class="text-center">
+                            <h3 class="text-xl font-bold mb-2">Summary for All Subjects</h3>
+                            <div class="flex justify-center items-center space-x-6">
+                                <div class="bg-purple-500/20 p-4 rounded-lg">
+                                    <div class="text-3xl font-bold">${totalClassesNeeded}</div>
+                                    <div class="text-sm">Total Classes Needed</div>
+                                </div>
+                                <div class="bg-green-500/20 p-4 rounded-lg">
+                                    <div class="text-3xl font-bold">${avgPerc.toFixed(2)}%</div>
+                                    <div class="text-sm">Average Attendance</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            showResults(resultsHTML);
+        }
+        // Calculate single subject bunk (for selected subjects)
+        function calculateSingleBunk() {
+            let resultsHTML = '';
+            let totalBunksPossible = 0;
+            
+            selectedSubjects.forEach(index => {
+                const attended = parseFloat(document.getElementById(`bunkAttended-${index}`).value);
+                const total = parseFloat(document.getElementById(`bunkTotal-${index}`).value);
+                const requiredPerc = parseFloat(document.getElementById(`bunkRequiredPerc-${index}`).value);
+                
+                if (isNaN(attended) || isNaN(total) || isNaN(requiredPerc)) {
+                    resultsHTML += `
+                        <div class="result-card bg-white/10 p-4 rounded-lg mb-4">
+                            <div class="flex items-start">
+                                <div class="bg-red-400/20 p-2 rounded-lg mr-4">
+                                    <i class="fas fa-exclamation-circle text-red-400"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold">${subjects[index]}</h4>
+                                    <p>Please fill in all fields with valid numbers.</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const currentPerc = (attended / total) * 100;
+                
+                if (currentPerc < requiredPerc) {
+                    resultsHTML += `
+                        <div class="result-card bg-white/10 p-4 rounded-lg mb-4">
+                            <div class="flex items-start">
+                                <div class="bg-yellow-400/20 p-2 rounded-lg mr-4">
+                                    <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold">${subjects[index]}</h4>
+                                    <p>Current attendance (${currentPerc.toFixed(2)}%) is already below required ${requiredPerc}%.</p>
+                                    <p class="mt-1">No bunks allowed.</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let bunks = 0;
+                while (true) {
+                    const futureTotal = total + bunks + 1;
+                    const futurePerc = (attended / futureTotal) * 100;
+                    
+                    if (futurePerc < requiredPerc) {
+                        break;
+                    }
+                    
+                    bunks++;
+                }
+                
+                totalBunksPossible += bunks;
+                
+                resultsHTML += `
+                    <div class="result-card bg-white/10 p-6 rounded-lg mb-4">
+                        <h3 class="text-xl font-bold mb-4">${subjects[index]}</h3>
+                        
+                        <div class="mb-6">
+                            <div class="flex justify-between mb-1">
+                                <span>Current: ${currentPerc.toFixed(2)}%</span>
+                                <span>Minimum: ${requiredPerc}%</span>
+                            </div>
+                            <div class="progress-bar mb-2">
+                                <div class="progress-fill bg-green-400" style="width: ${Math.min(currentPerc, 100)}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-white/5 p-4 rounded-lg">
+                                <h4 class="font-medium mb-2">Current Status</h4>
+                                <p><span class="font-bold">${attended}</span> attended / <span class="font-bold">${total}</span> total</p>
+                                <p><span class="font-bold">${currentPerc.toFixed(2)}%</span> attendance</p>
+                            </div>
+                            <div class="bg-white/5 p-4 rounded-lg">
+                                <h4 class="font-medium mb-2">Bunk Calculation</h4>
+                                <p>You can safely bunk up to:</p>
+                                <p class="text-2xl font-bold text-green-400">${bunks} classes</p>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-6 p-4 bg-blue-400/20 rounded-lg border border-blue-400/30">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            After bunking ${bunks} classes, your attendance would be ${((attended / (total + bunks)) * 100).toFixed(2)}%.
+                            Bunking ${bunks + 1} classes would drop you to ${((attended / (total + bunks + 1)) * 100).toFixed(2)}%.
+                        </div>
+                    </div>
+                `;
+            });
+            
+            if (selectedSubjects.length > 0) {
+                resultsHTML += `
+                    <div class="result-card bg-white/10 p-6 rounded-lg mt-6 border border-white/20">
+                        <div class="text-center">
+                            <h3 class="text-xl font-bold mb-2">Bunk Summary for Selected Subjects</h3>
+                            <div class="bg-blue-500/20 p-6 rounded-lg inline-block">
+                                <div class="text-4xl font-bold">${totalBunksPossible}</div>
+                                <div class="text-lg">Total Classes You Can Bunk</div>
+                            </div>
+                            <p class="mt-4 text-sm opacity-80">This is the combined total across all selected subjects where bunking is possible.</p>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            showResults(resultsHTML);
+        }
+        // Calculate all subjects bunk
+        function calculateAllBunk() {
+            const inputs = document.querySelectorAll('.bunk-input');
+            const subjectData = {};
+            
+            // Collect all subject data
+            inputs.forEach(input => {
+                const subjectIndex = input.dataset.subject;
+                const type = input.dataset.type.replace('bunk', '').toLowerCase();
+                const value = parseFloat(input.value);
+                
+                if (!subjectData[subjectIndex]) {
+                    subjectData[subjectIndex] = {};
+                }
+                
+                subjectData[subjectIndex][type] = isNaN(value) ? 0 : value;
+            });
+            
+            // Process each subject
+            let totalBunksPossible = 0;
+            let resultsHTML = '';
+            
+            for (const [index, data] of Object.entries(subjectData)) {
+                if (!data.attended || !data.total || !data.requiredperc) continue;
+                
+                const currentPerc = (data.attended / data.total) * 100;
+                
+                if (currentPerc < data.requiredperc) {
+                    resultsHTML += `
+                        <div class="result-card bg-white/10 p-4 rounded-lg mb-4">
+                            <div class="flex items-start">
+                                <div class="bg-yellow-400/20 p-2 rounded-lg mr-4">
+                                    <i class="fas fa-exclamation-triangle text-yellow-400"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold">${subjects[index]}</h4>
+                                    <p>Current attendance (${currentPerc.toFixed(2)}%) is already below required ${data.requiredperc}%.</p>
+                                    <p class="mt-1">No bunks allowed.</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    continue;
+                }
+                
+                let bunks = 0;
+                while (true) {
+                    const futureTotal = data.total + bunks + 1;
+                    const futurePerc = (data.attended / futureTotal) * 100;
+                    
+                    if (futurePerc < data.requiredperc) {
+                        break;
+                    }
+                    
+                    bunks++;
+                }
+                
+                totalBunksPossible += bunks;
+                
+                resultsHTML += `
+                    <div class="result-card bg-white/10 p-4 rounded-lg mb-4">
+                        <h4 class="font-bold mb-2">${subjects[index]}</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+                            <div>
+                                <p class="text-sm">Current: ${data.attended}/${data.total} (${currentPerc.toFixed(2)}%)</p>
+                                <div class="progress-bar">
+                                    <div class="progress-fill bg-green-400" style="width: ${Math.min(currentPerc, 100)}%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <p class="text-sm">Can bunk up to:</p>
+                                <div class="text-xl font-bold text-green-400">${bunks} classes</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (Object.keys(subjectData).length > 0) {
+                resultsHTML += `
+                    <div class="result-card bg-white/10 p-6 rounded-lg mt-6 border border-white/20">
+                        <div class="text-center">
+                            <h3 class="text-xl font-bold mb-2">Bunk Summary for All Subjects</h3>
+                            <div class="bg-blue-500/20 p-6 rounded-lg inline-block">
+                                <div class="text-4xl font-bold">${totalBunksPossible}</div>
+                                <div class="text-lg">Total Classes You Can Bunk</div>
+                            </div>
+                            <p class="mt-4 text-sm opacity-80">This is the combined total across all subjects where bunking is possible.</p>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            showResults(resultsHTML);
+        }
+        // Display results
+        function showResults(content) {
+            const container = document.getElementById('resultsContainer');
+            const contentDiv = document.getElementById('resultsContent');
+            
+            contentDiv.innerHTML = content;
+            container.classList.remove('hidden');
+            container.scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+<p style="border-radius: 8px; text-align: center; font-size: 12px; color: #fff; margin-top: 16px;position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(0, 0, 0, 0.8); padding: 4px 8px;">Made with <img src="https://enzostvs-deepsite.hf.space/logo.svg" alt="DeepSite Logo" style="width: 16px; height: 16px; vertical-align: middle;display:inline-block;margin-right:3px;filter:brightness(0) invert(1);"><a href="https://enzostvs-deepsite.hf.space" style="color: #fff;text-decoration: underline;" target="_blank" >DeepSite</a> - 🧬 <a href="https://enzostvs-deepsite.hf.space?remix=aadithyavimal/attendancepro" style="color: #fff;text-decoration: underline;" target="_blank" >Remix</a></p></body>
+</html>
