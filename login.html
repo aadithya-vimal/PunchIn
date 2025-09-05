@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Attendance Pro</title>
+    <link rel="icon" type="image/x-icon" href="AttendanceApplication.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-weight: 400;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .gradient-bg { background: linear-gradient(135deg, #121212, #1a1a2e); }
+        .card-hover { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .card-hover:hover { transform: translateY(-8px) scale(1.02); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+        .glow { animation: glow 2s ease-in-out infinite alternate; }
+        @keyframes glow { from { box-shadow: 0 0 5px rgba(255, 255, 255, 0.1); } to { box-shadow: 0 0 20px rgba(255, 255, 255, 0.3); } }
+        .text-gradient { background: linear-gradient(90deg, #a5b4fc, #818cf8); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .login-card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen flex items-center justify-center p-4">
+    <div id="g_id_onload"
+         data-client_id="YOUR_CLIENT_ID.apps.googleusercontent.com"
+         data-callback="handleCredentialResponse"
+         data-auto_prompt="false">
+    </div>
+
+    <div class="w-full max-w-md">
+        <div class="text-center mb-8">
+            <div class="inline-block mb-6">
+                <div class="bg-white/5 backdrop-blur-lg rounded-full p-4 shadow-lg glow">
+                    <i class="fas fa-calendar-check text-3xl text-gradient"></i>
+                </div>
+            </div>
+            <h1 class="text-3xl md:text-4xl font-bold mb-2 text-gradient">Attendance Pro</h1>
+            <p class="text-white/80">Sign in to continue</p>
+        </div>
+        
+        <div class="login-card rounded-xl p-8 shadow-xl">
+            <h2 class="text-2xl font-bold text-center mb-6 text-white/90">Welcome Back</h2>
+            
+            <div class="mb-6">
+                <div class="g_id_signin" 
+                     data-type="standard" 
+                     data-size="large" 
+                     data-theme="outline" 
+                     data-text="sign_in_with" 
+                     data-shape="rectangular" 
+                     data-logo_alignment="left"
+                     data-width="360">
+                </div>
+            </div>
+            
+            <div class="flex items-center mb-6">
+                <div class="flex-grow border-t border-white/20"></div>
+                <span class="mx-4 text-white/60 text-sm">OR</span>
+                <div class="flex-grow border-t border-white/20"></div>
+            </div>
+            
+            <form id="loginForm">
+                <div class="mb-4">
+                    <label class="block text-white/80 text-sm mb-2" for="username">
+                        Username
+                    </label>
+                    <input type="text" id="username" class="w-full bg-white/10 border border-white/30 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/50 text-white" placeholder="Enter your username" autocomplete="username">
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block text-white/80 text-sm mb-2" for="password">
+                        Password
+                    </label>
+                    <input type="password" id="password" class="w-full bg-white/10 border border-white/30 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/50 text-white" placeholder="Enter your password" autocomplete="current-password">
+                </div>
+
+                <div id="error-message" class="text-red-400 text-sm text-center mb-4 hidden"></div>
+                
+                <button type="submit" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold py-3 px-4 rounded-lg hover:shadow-lg transition-all">
+                    Sign In
+                </button>
+            </form>
+            
+            <div class="mt-6 text-center">
+                <p class="text-white/60 text-sm">
+                    Don't have an account? <a href="#" class="text-indigo-400 hover:text-indigo-300">Sign up</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // NEW: This is the callback function for Google Sign-In
+        function handleCredentialResponse(response) {
+            // response.credential contains the ID token
+            //
+            // !! SECURITY WARNING !!
+            // In a real application, you MUST send this ID token to your backend server
+            // for verification and session management. Do NOT trust client-side login.
+            //
+            console.log("Encoded ID Token: " + response.credential);
+            
+            // For this demo, we'll still simulate the login after receiving a token
+            localStorage.setItem('loggedIn', 'true');
+            window.location.href = 'index.html';
+        }
+        
+        // Handle form submission
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.getElementById('loginForm');
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
+            const errorMessageDiv = document.getElementById('error-message');
+            
+            loginForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const username = usernameInput.value.trim();
+                const password = passwordInput.value.trim();
+                
+                if (username === '' || password === '') {
+                    errorMessageDiv.textContent = 'Please enter both username and password.';
+                    errorMessageDiv.classList.remove('hidden');
+                } else {
+                    // This is a client-side simulation.
+                    // !! SECURITY WARNING !!
+                    // In a real app, this is where you'd send the username/password
+                    // to your server via an API call (e.g., using fetch()).
+                    
+                    errorMessageDiv.classList.add('hidden');
+                    localStorage.setItem('loggedIn', 'true');
+                    window.location.href = 'index.html';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
