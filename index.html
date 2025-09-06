@@ -25,6 +25,9 @@
         appId: "1:1061249192401:web:93a7db035a0e14bb2910f0",
         measurementId: "G-WPDEYXTNFY"
       };
+      
+      // Make config globally accessible for the AI function
+      window.firebaseConfig = firebaseConfig;
 
       const app = initializeApp(firebaseConfig);
       const auth = getAuth(app);
@@ -418,14 +421,12 @@
                     if (name) newSubjects.push(name);
                 });
                 
-                // Set local state for instant UI update
                 this.subjects = newSubjects;
                 this.selectedSubjects = [];
                 this.attendanceData = {};
-                this.timetable = {}; // Also clear timetable for data integrity
+                this.timetable = {};
                 
                 this.renderAll(); 
-                // Save the new state to Firebase in the background
                 this.saveData();
                 
                 button.closest('.fixed').remove();
@@ -647,7 +648,7 @@
                     Format your response clearly using paragraphs and bullet points.
                 `;
 
-                const apiKey = "";
+                const apiKey = window.firebaseConfig.apiKey; 
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
                 const payload = {
                     contents: [{ parts: [{ text: userQuery }] }],
@@ -695,4 +696,3 @@
     </script>
 </body>
 </html>
-
