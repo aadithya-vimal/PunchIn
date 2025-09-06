@@ -71,7 +71,8 @@
 
             if (isFirstLoad) {
                 // On the very first data load, set a default mode and render everything
-                window.appState.setMode('attend-single');
+                window.appState.currentMode = 'attend-single';
+                window.appState.renderAll();
                 isFirstLoad = false;
             } else if (oldSubjectsJSON !== newSubjectsJSON) {
                 // If subjects were added/removed, do a full re-render
