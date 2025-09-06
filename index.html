@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PunchIn</title>
+    <title>Punch.In</title>
     <link rel="icon" type="image/x-icon" href="AttendanceApplication.ico">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -98,46 +98,54 @@
         }
     </style>
 </head>
-<body class="gradient-bg min-h-screen text-white">
+<body class="gradient-bg min-h-screen text-white flex flex-col">
     <button onclick="window.appState.logout()" title="Logout" class="fixed top-6 right-6 z-50 bg-red-500 hover:bg-red-600 text-white p-3 rounded-full transition-all transform hover:scale-110 shadow-lg">
         <i class="fas fa-sign-out-alt"></i>
     </button>
-    <div class="container mx-auto px-4 py-8">
-        <header class="text-center mb-12">
-            <div class="inline-block mb-6"><div class="bg-white/5 backdrop-blur-lg rounded-full p-4 shadow-lg glow"><i class="fas fa-calendar-check text-3xl text-gradient"></i></div></div>
-            <h1 class="text-5xl md:text-6xl font-bold mb-4 text-gradient">Punch.In</h1>
-            <p class="text-xl opacity-90 max-w-2xl mx-auto">Precision tracking for academic excellence.</p>
-        </header>
-        <div class="mb-10">
-            <h2 class="text-3xl font-bold mb-6 text-center">Attendance Overview</h2>
-            <div id="attendanceOverview" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"></div>
-        </div>
-        <div class="flex flex-col lg:flex-row gap-8">
-            <div class="lg:w-1/4 bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold">Your Subjects</h2>
-                    <button onclick="window.appState.openEditWindow()" title="Edit Subjects" class="bg-indigo-500 hover:bg-indigo-600 text-white p-2 rounded-full transition-transform hover:scale-110"><i class="fas fa-edit"></i></button>
-                </div>
-                <div class="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto pr-2" id="subjectsList"></div>
+    <main class="flex-grow">
+        <div class="container mx-auto px-4 py-8">
+            <header class="text-center mb-12">
+                <div class="inline-block mb-6"><div class="bg-white/5 backdrop-blur-lg rounded-full p-4 shadow-lg glow"><i class="fas fa-calendar-check text-3xl text-gradient"></i></div></div>
+                <h1 class="text-5xl md:text-6xl font-bold mb-4 text-gradient">Punch.In</h1>
+                <p class="text-xl opacity-90 max-w-2xl mx-auto">Precision tracking for academic excellence.</p>
+            </header>
+            <div class="mb-10">
+                <h2 class="text-3xl font-bold mb-6 text-center">Attendance Overview</h2>
+                <div id="attendanceOverview" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"></div>
             </div>
-            <div class="lg:w-3/4 bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg">
-                <div class="mb-8">
-                    <h2 class="text-2xl font-bold mb-4">Select Calculation Type</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <button id="mode-attend-single" onclick="window.appState.setMode('attend-single')" class="mode-button card-hover bg-white/10 hover:bg-white/20 rounded-lg p-4 text-left transition-all"><i class="fas fa-user-graduate text-2xl mb-2 text-indigo-300"></i><h3 class="font-bold text-lg">Selected Subjects Attendance</h3><p class="text-sm opacity-80">Calculate how many more classes you need to attend</p></button>
-                        <button id="mode-attend-all" onclick="window.appState.setMode('attend-all')" class="mode-button card-hover bg-white/10 hover:bg-white/20 rounded-lg p-4 text-left transition-all"><i class="fas fa-users text-2xl mb-2 text-indigo-300"></i><h3 class="font-bold text-lg">All Subjects Attendance</h3><p class="text-sm opacity-80">Calculate total classes needed across all subjects</p></button>
-                        <button id="mode-bunk-single" onclick="window.appState.setMode('bunk-single')" class="mode-button card-hover bg-white/10 hover:bg-white/20 rounded-lg p-4 text-left transition-all"><i class="fas fa-bed text-2xl mb-2 text-blue-300"></i><h3 class="font-bold text-lg">Selected Subjects Bunk</h3><p class="text-sm opacity-80">Calculate how many classes you can safely bunk</p></button>
-                        <button id="mode-bunk-all" onclick="window.appState.setMode('bunk-all')" class="mode-button card-hover bg-white/10 hover:bg-white/20 rounded-lg p-4 text-left transition-all"><i class="fas fa-couch text-2xl mb-2 text-blue-300"></i><h3 class="font-bold text-lg">All Subjects Bunk</h3><p class="text-sm opacity-80">Calculate bunkable classes across all subjects</p></button>
+            <div class="flex flex-col lg:flex-row gap-8">
+                <div class="lg:w-1/4 bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold">Your Subjects</h2>
+                        <button onclick="window.appState.openEditWindow()" title="Edit Subjects" class="bg-indigo-500 hover:bg-indigo-600 text-white p-2 rounded-full transition-transform hover:scale-110"><i class="fas fa-edit"></i></button>
+                    </div>
+                    <div class="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto pr-2" id="subjectsList"></div>
+                </div>
+                <div class="lg:w-3/4 bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg">
+                    <div class="mb-8">
+                        <h2 class="text-2xl font-bold mb-4">Select Calculation Type</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <button id="mode-attend-single" onclick="window.appState.setMode('attend-single')" class="mode-button card-hover bg-white/10 hover:bg-white/20 rounded-lg p-4 text-left transition-all"><i class="fas fa-user-graduate text-2xl mb-2 text-indigo-300"></i><h3 class="font-bold text-lg">Selected Subjects Attendance</h3><p class="text-sm opacity-80">Calculate how many more classes you need to attend</p></button>
+                            <button id="mode-attend-all" onclick="window.appState.setMode('attend-all')" class="mode-button card-hover bg-white/10 hover:bg-white/20 rounded-lg p-4 text-left transition-all"><i class="fas fa-users text-2xl mb-2 text-indigo-300"></i><h3 class="font-bold text-lg">All Subjects Attendance</h3><p class="text-sm opacity-80">Calculate total classes needed across all subjects</p></button>
+                            <button id="mode-bunk-single" onclick="window.appState.setMode('bunk-single')" class="mode-button card-hover bg-white/10 hover:bg-white/20 rounded-lg p-4 text-left transition-all"><i class="fas fa-bed text-2xl mb-2 text-blue-300"></i><h3 class="font-bold text-lg">Selected Subjects Bunk</h3><p class="text-sm opacity-80">Calculate how many classes you can safely bunk</p></button>
+                            <button id="mode-bunk-all" onclick="window.appState.setMode('bunk-all')" class="mode-button card-hover bg-white/10 hover:bg-white/20 rounded-lg p-4 text-left transition-all"><i class="fas fa-couch text-2xl mb-2 text-blue-300"></i><h3 class="font-bold text-lg">All Subjects Bunk</h3><p class="text-sm opacity-80">Calculate bunkable classes across all subjects</p></button>
+                        </div>
+                    </div>
+                    <div id="inputForm" class="mb-8"></div>
+                    <div id="resultsContainer" class="hidden">
+                        <h2 class="text-2xl font-bold mb-4">Results</h2>
+                        <div id="resultsContent" class="space-y-4"></div>
                     </div>
                 </div>
-                <div id="inputForm" class="mb-8"></div>
-                <div id="resultsContainer" class="hidden">
-                    <h2 class="text-2xl font-bold mb-4">Results</h2>
-                    <div id="resultsContent" class="space-y-4"></div>
-                </div>
             </div>
         </div>
-    </div>
+    </main>
+    
+    <footer class="w-full text-center p-8 text-white/50 text-sm">
+        <p>Copyright &copy; 2025 AtomiComp</p>
+        <p class="mt-2">Contact: <a href="mailto:team.atomicomp@gmail.com" class="hover:text-white/80 transition-colors">team.atomicomp@gmail.com</a></p>
+    </footer>
+
     <script type="module">
         import { setDoc } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
         import { signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
@@ -384,10 +392,8 @@
                 this.selectedSubjects = [];
                 this.attendanceData = {};
                 
-                // Manually trigger a re-render for instant UI feedback
-                this.renderAll(); 
-                // Save the data to Firebase in the background
                 this.saveData();
+                this.renderAll();
                 
                 button.closest('.fixed').remove();
             },
@@ -503,4 +509,3 @@
     </script>
 </body>
 </html>
-
