@@ -663,7 +663,7 @@
                     const candidate = result.candidates?.[0];
                     if (candidate && candidate.content?.parts?.[0]?.text) {
                         const text = candidate.content.parts[0].text;
-                        const formattedText = marked.parse(text); // Use Marked.js for proper parsing
+                        const formattedText = marked.parse(text); 
 
                         recommendationDiv.innerHTML = `<div class="ai-recommendation-content">${formattedText}</div>`;
 
@@ -678,10 +678,8 @@
                         }
                     } else {
                         let errorMessage = "Sorry, I couldn't generate a recommendation at this time. The response from the AI was empty.";
-                        if (candidate && candidate.finishReason === 'SAFETY') {
-                            errorMessage = "The AI couldn't generate a response due to safety filters. This can sometimes happen with complex data. Please try again or simplify your subject names.";
-                        } else if(result.promptFeedback && result.promptFeedback.blockReason === 'SAFETY'){
-                             errorMessage = "Your request was blocked for safety reasons. Please try rephrasing your subject names or timetable details.";
+                        if (candidate?.finishReason === 'SAFETY' || result.promptFeedback?.blockReason === 'SAFETY') {
+                             errorMessage = "The AI couldn't generate a response due to safety filters. This can happen with complex data. Please try again or simplify your subject names.";
                         }
                         recommendationDiv.textContent = errorMessage;
                     }
