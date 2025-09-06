@@ -45,25 +45,30 @@
             const oldSubjectsJSON = JSON.stringify(window.appState.subjects || []);
             let newSubjects = [];
             let newAttendanceData = {};
+            let newTimetable = {};
 
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 newSubjects = data.subjects || [];
                 newAttendanceData = data.attendanceData || {};
+                newTimetable = data.timetable || {};
             } else {
                  const defaultData = {
                     subjects: [],
-                    attendanceData: {}
+                    attendanceData: {},
+                    timetable: {}
                 };
                 setDoc(userDocRef, defaultData);
                 newSubjects = defaultData.subjects;
                 newAttendanceData = defaultData.attendanceData;
+                newTimetable = defaultData.timetable;
             }
             
             const newSubjectsJSON = JSON.stringify(newSubjects);
 
             window.appState.subjects = newSubjects;
             window.appState.attendanceData = newAttendanceData;
+            window.appState.timetable = newTimetable;
 
             if (isFirstLoad) {
                 window.appState.renderAll();
@@ -96,6 +101,8 @@
             transform: translateY(-4px) scale(1.01);
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
+        .ai-recommendation-content p { margin-bottom: 0.75rem; }
+        .ai-recommendation-content ul { margin-left: 1.5rem; list-style-type: disc; margin-bottom: 1rem; }
     </style>
 </head>
 <body class="gradient-bg min-h-screen text-white flex flex-col">
@@ -113,11 +120,28 @@
                 <h2 class="text-3xl font-bold mb-6 text-center">Attendance Overview</h2>
                 <div id="attendanceOverview" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"></div>
             </div>
+            
+            <div id="ai-assistant" class="bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg mb-8">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-4">
+                    <h2 class="text-3xl font-bold text-gradient mb-4 md:mb-0">Strategic Bunk Planner</h2>
+                    <button onclick="window.appState.getAIRecommendation()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition-all transform hover:scale-105 shadow-lg flex items-center">
+                        <i class="fas fa-brain mr-3"></i> Find Best Bunk Days
+                    </button>
+                </div>
+                <div id="ai-recommendation" class="bg-black/20 p-6 rounded-lg min-h-[100px] text-white/80 leading-relaxed">
+                    Click the button to get an AI-powered recommendation on the best days to bunk for a long weekend, based on your timetable and local holidays.
+                </div>
+                 <div id="ai-sources" class="text-xs text-white/40 mt-3"></div>
+            </div>
+
             <div class="flex flex-col lg:flex-row gap-8">
                 <div class="lg:w-1/4 bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg">
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="text-2xl font-bold">Your Subjects</h2>
-                        <button onclick="window.appState.openEditWindow()" title="Edit Subjects" class="bg-indigo-500 hover:bg-indigo-600 text-white p-2 rounded-full transition-transform hover:scale-110"><i class="fas fa-edit"></i></button>
+                        <div class="flex gap-2">
+                             <button onclick="window.appState.openTimetableWindow()" title="Set Timetable" class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full transition-transform hover:scale-110"><i class="fas fa-clock"></i></button>
+                            <button onclick="window.appState.openEditWindow()" title="Edit Subjects" class="bg-indigo-500 hover:bg-indigo-600 text-white p-2 rounded-full transition-transform hover:scale-110"><i class="fas fa-edit"></i></button>
+                        </div>
                     </div>
                     <div class="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto pr-2" id="subjectsList"></div>
                 </div>
@@ -140,12 +164,10 @@
             </div>
         </div>
     </main>
-    
     <footer class="w-full text-center p-8 text-white/50 text-sm">
         <p>Copyright &copy; 2025 AtomiComp</p>
         <p class="mt-2">Contact: <a href="mailto:team.atomicomp@gmail.com" class="hover:text-white/80 transition-colors">team.atomicomp@gmail.com</a></p>
     </footer>
-
     <script type="module">
         import { setDoc } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
         import { signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
@@ -153,13 +175,18 @@
         window.appState = {
             subjects: [],
             attendanceData: {},
+            timetable: {},
             currentMode: 'attend-single',
             selectedSubjects: [],
             userDocRef: null,
             auth: null,
             async saveData() {
                 if (this.userDocRef) {
-                    await setDoc(this.userDocRef, { subjects: this.subjects, attendanceData: this.attendanceData });
+                    await setDoc(this.userDocRef, { 
+                        subjects: this.subjects, 
+                        attendanceData: this.attendanceData,
+                        timetable: this.timetable 
+                    });
                 }
             },
             getSubjectData(index) {
@@ -392,8 +419,8 @@
                 this.selectedSubjects = [];
                 this.attendanceData = {};
                 
+                this.renderAll(); 
                 this.saveData();
-                this.renderAll();
                 
                 button.closest('.fixed').remove();
             },
@@ -504,6 +531,158 @@
             },
             generateBunkSummaryCard(totalBunkable) {
                 return `<div class="result-card bg-blue-500/30 p-6 rounded-lg mt-6 border border-blue-400/50 text-center"><h3 class="text-xl font-bold mb-2">Total Summary</h3><p class="mb-3">Across all valid selected subjects, you can safely bunk a total of:</p><div class="text-5xl font-bold text-white">${totalBunkable}</div><p>classes.</p></div>`;
+            },
+            openTimetableWindow() {
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4';
+                
+                const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                let timetableHTML = '';
+
+                if (this.subjects.length === 0) {
+                    timetableHTML = `<p class="text-center text-white/60 col-span-full">Please add subjects first before setting a timetable.</p>`;
+                } else {
+                    timetableHTML = days.map(day => `
+                        <div class="bg-white/5 p-4 rounded-lg">
+                            <h4 class="font-bold text-lg mb-3">${day}</h4>
+                            <div class="space-y-2">
+                                ${this.subjects.map((subject, index) => `
+                                    <label class="flex items-center space-x-3 cursor-pointer">
+                                        <input type="checkbox" data-day="${day.toLowerCase()}" data-subject-index="${index}" 
+                                               class="form-checkbox h-5 w-5 bg-white/20 border-white/30 text-indigo-500 focus:ring-indigo-500/50"
+                                               ${(this.timetable[day.toLowerCase()] || []).includes(index) ? 'checked' : ''}>
+                                        <span class="text-sm">${subject}</span>
+                                    </label>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `).join('');
+                }
+
+                modal.innerHTML = `
+                    <div class="bg-gray-900 rounded-xl p-6 w-full max-w-4xl max-h-[90vh] flex flex-col">
+                        <div class="flex justify-between items-center mb-6 flex-shrink-0">
+                            <h2 class="text-2xl font-bold">Set Weekly Timetable</h2>
+                            <button onclick="this.closest('.fixed').remove()" class="text-white/60 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 flex-grow overflow-y-auto pr-2">
+                           ${timetableHTML}
+                        </div>
+                        <div class="flex justify-end gap-3 mt-6 flex-shrink-0">
+                            <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-lg border border-white/20 hover:bg-white/10">Cancel</button>
+                            <button onclick="window.appState.saveTimetable(this)" class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg">Save Timetable</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            },
+
+            saveTimetable(button) {
+                const newTimetable = {};
+                const checkboxes = document.querySelectorAll('.form-checkbox');
+                checkboxes.forEach(cb => {
+                    const day = cb.dataset.day;
+                    const subjectIndex = parseInt(cb.dataset.subjectIndex);
+                    if (!newTimetable[day]) {
+                        newTimetable[day] = [];
+                    }
+                    if (cb.checked) {
+                        newTimetable[day].push(subjectIndex);
+                    }
+                });
+                this.timetable = newTimetable;
+                this.saveData();
+                button.closest('.fixed').remove();
+            },
+
+            async getAIRecommendation() {
+                const recommendationDiv = document.getElementById('ai-recommendation');
+                const sourcesDiv = document.getElementById('ai-sources');
+                recommendationDiv.innerHTML = `<div class="flex items-center justify-center"><i class="fas fa-spinner fa-spin text-2xl mr-3"></i> Analyzing your schedule and searching for holidays...</div>`;
+                sourcesDiv.innerHTML = '';
+
+                const attendanceStatus = this.subjects.map((subject, index) => {
+                    const data = this.getSubjectData(index);
+                    const percentage = (data.attended && data.total) ? ((data.attended / data.total) * 100).toFixed(1) : 'N/A';
+                    return `- ${subject}: ${percentage}%`;
+                }).join('\n');
+
+                const timetableString = Object.entries(this.timetable).map(([day, subjectIndices]) => {
+                    const subjectNames = subjectIndices.map(index => this.subjects[index]).join(', ');
+                    return `- ${day.charAt(0).toUpperCase() + day.slice(1)}: ${subjectNames}`;
+                }).join('\n');
+
+                if (this.subjects.length === 0 || !timetableString) {
+                     recommendationDiv.innerHTML = "Please add your subjects and set your weekly timetable first before asking for a recommendation.";
+                     return;
+                }
+
+                const systemPrompt = "You are an expert academic advisor for a student in Bengaluru, Karnataka, India. Your goal is to find the most strategic days for the student to miss class (bunk) to get a long weekend. Be concise, friendly, and provide actionable advice. Base your holiday information on real-time search results for the user's location.";
+                const userQuery = `
+                    My current location is Bengaluru, Karnataka, India.
+                    My required attendance percentage is 75% for all subjects.
+
+                    Here is my current attendance status:
+                    ${attendanceStatus}
+
+                    Here is my weekly timetable:
+                    ${timetableString}
+
+                    First, find public holidays in Bengaluru, Karnataka, India for the next 3 months.
+                    Then, analyze my timetable and attendance. Identify any Fridays or Mondays that are working days but are next to a public holiday or weekend, creating a potential 3-day or longer weekend. 
+
+                    For each of these strategic days, tell me:
+                    1. If I can afford to bunk all the classes on that day right now without any subject dropping below 75%.
+                    2. If not, tell me exactly how many classes of which specific subjects I need to attend consecutively to 'earn' that day off.
+                    
+                    Present the best and most immediate option first. If no such opportunities exist, tell me that and wish me luck with my studies.
+                    Format your response clearly using paragraphs and bullet points.
+                `;
+
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    tools: [{ "google_search": {} }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                };
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const result = await response.json();
+                    
+                    const candidate = result.candidates?.[0];
+                    if (candidate && candidate.content?.parts?.[0]?.text) {
+                        const text = candidate.content.parts[0].text;
+                        const formattedText = text
+                            .replace(/\n/g, '<br>')
+                            .replace(/\* (.*?)(<br>|$)/g, '<li>$1</li>')
+                            .replace(/<br><li>/g, '<li>')
+                            .replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>')
+                            .replace(/<\/ul><br><ul>/g, '');
+
+                        recommendationDiv.innerHTML = `<div class="ai-recommendation-content">${formattedText}</div>`;
+
+                        const groundingMetadata = candidate.groundingMetadata;
+                        if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                            const sources = groundingMetadata.groundingAttributions
+                                .map(attr => attr.web?.uri && `<a href="${attr.web.uri}" target="_blank" class="hover:underline">${attr.web.title}</a>`)
+                                .filter(Boolean);
+                            if (sources.length > 0) {
+                                sourcesDiv.innerHTML = `Holiday data based on: ${sources.join(', ')}`;
+                            }
+                        }
+                    } else {
+                        recommendationDiv.textContent = "Sorry, I couldn't generate a recommendation at this time. The response from the AI was empty.";
+                    }
+                } catch (error) {
+                    console.error("Error fetching AI recommendation:", error);
+                    recommendationDiv.textContent = "An error occurred while trying to get a recommendation. Please check the console for details.";
+                }
             }
         };
     </script>
