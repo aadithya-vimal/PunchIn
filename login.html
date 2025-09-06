@@ -114,14 +114,14 @@
       // --- Email/Password Form Logic ---
       const emailForm = document.getElementById('emailForm');
       const submitButton = document.getElementById('submit-button');
-      const authToggleLink = document.getElementById('auth-toggle-link');
       const toggleText = document.getElementById('toggle-text');
       const errorMessageDiv = document.getElementById('errorMessage');
       
       let isSignUpMode = false;
 
-      authToggleLink.addEventListener('click', (e) => {
-        e.preventDefault();
+      // This function handles switching between Sign In and Sign Up modes.
+      function toggleAuthMode(e) {
+        if (e) e.preventDefault();
         isSignUpMode = !isSignUpMode;
         
         if (isSignUpMode) {
@@ -131,9 +131,13 @@
           submitButton.textContent = 'Sign In';
           toggleText.innerHTML = `Don't have an account? <a href="#" id="auth-toggle-link" class="text-indigo-400 hover:text-indigo-300">Sign up</a>`;
         }
-        // Re-add event listener to the new link
-        document.getElementById('auth-toggle-link').addEventListener('click', arguments.callee);
-      });
+        
+        // After changing the HTML, we need to find the new link and attach the listener to it.
+        document.getElementById('auth-toggle-link').addEventListener('click', toggleAuthMode);
+      }
+      
+      // Attach the initial event listener.
+      document.getElementById('auth-toggle-link').addEventListener('click', toggleAuthMode);
 
       emailForm.addEventListener('submit', async (e) => {
         e.preventDefault();
