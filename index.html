@@ -418,11 +418,14 @@
                     if (name) newSubjects.push(name);
                 });
                 
+                // Set local state for instant UI update
                 this.subjects = newSubjects;
                 this.selectedSubjects = [];
                 this.attendanceData = {};
+                this.timetable = {}; // Also clear timetable for data integrity
                 
                 this.renderAll(); 
+                // Save the new state to Firebase in the background
                 this.saveData();
                 
                 button.closest('.fixed').remove();
