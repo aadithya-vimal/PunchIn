@@ -7,6 +7,8 @@
     <link rel="icon" type="image/x-icon" href="AttendanceApplication.ico">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Added Marked.js library to parse AI's Markdown response -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <!-- Firebase SDK Scripts -->
     <script type="module">
@@ -103,6 +105,7 @@
         }
         .ai-recommendation-content p { margin-bottom: 0.75rem; }
         .ai-recommendation-content ul { margin-left: 1.5rem; list-style-type: disc; margin-bottom: 1rem; }
+        .ai-recommendation-content li { margin-bottom: 0.25rem; }
     </style>
 </head>
 <body class="gradient-bg min-h-screen text-white flex flex-col">
@@ -123,7 +126,7 @@
             
             <div id="ai-assistant" class="bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg mb-8">
                 <div class="flex flex-col md:flex-row justify-between items-center mb-4">
-                    <h2 class="text-3xl font-bold text-gradient mb-4 md:mb-0">Strategic Bunk Planner</h2>
+                    <h2 class="text-3xl font-bold text-gradient mb-4 md:mb-0">Strategic AI Bunk Planner</h2>
                     <button onclick="window.appState.getAIRecommendation()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition-all transform hover:scale-105 shadow-lg flex items-center">
                         <i class="fas fa-brain mr-3"></i> Find Best Bunk Days
                     </button>
@@ -541,31 +544,31 @@
                 if (this.subjects.length === 0) {
                     timetableHTML = `<p class="text-center text-white/60 col-span-full">Please add subjects first before setting a timetable.</p>`;
                 } else {
-                    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
                     timetableHTML = `
-                        <div class="grid grid-cols-8 gap-2 text-center font-bold mb-2 sticky top-0 bg-gray-900 py-2">
-                            <div class="col-span-2">Subject</div>
-                            ${days.map(day => `<div>${day.substring(0,3)}</div>`).join('')}
-                        </div>
-                        ${this.subjects.map((subject, index) => `
-                            <div class="grid grid-cols-8 gap-2 items-center py-2 border-b border-white/10">
-                                <div class="col-span-2 text-sm text-left truncate pr-2">${subject}</div>
+                        <div class="grid" style="grid-template-columns: 2fr repeat(6, 1fr); gap: 0.5rem; text-align: center;">
+                            <div class="font-bold sticky top-0 bg-gray-900 py-2 col-span-1 text-left">Subject</div>
+                            ${days.map(day => `<div class="font-bold sticky top-0 bg-gray-900 py-2">${day.substring(0,3)}</div>`).join('')}
+                        
+                            ${this.subjects.map((subject, index) => `
+                                <div class="col-span-1 text-sm text-left truncate pr-2 py-2 border-b border-white/10">${subject}</div>
                                 ${days.map(day => {
                                     const dayKey = day.toLowerCase();
                                     const value = (this.timetable[dayKey] && this.timetable[dayKey][index]) || '';
-                                    return `<div><input type="number" min="0" max="10" data-day="${dayKey}" data-subject-index="${index}" value="${value}" class="timetable-input w-12 bg-white/10 text-center rounded-md p-1"></div>`
+                                    return `<div class="py-2 border-b border-white/10 flex justify-center"><input type="number" min="0" max="10" data-day="${dayKey}" data-subject-index="${index}" value="${value}" class="timetable-input w-12 bg-white/10 text-center rounded-md p-1"></div>`
                                 }).join('')}
-                            </div>
-                        `).join('')}
+                            `).join('')}
+                        </div>
                     `;
                 }
 
                 modal.innerHTML = `
-                    <div class="bg-gray-900 rounded-xl p-6 w-full max-w-4xl max-h-[90vh] flex flex-col">
-                        <div class="flex justify-between items-center mb-6 flex-shrink-0">
+                    <div class="bg-gray-900 rounded-xl p-6 w-full max-w-5xl max-h-[90vh] flex flex-col">
+                        <div class="flex justify-between items-center mb-4 flex-shrink-0">
                             <h2 class="text-2xl font-bold">Set Weekly Timetable</h2>
                             <button onclick="this.closest('.fixed').remove()" class="text-white/60 hover:text-white"><i class="fas fa-times text-xl"></i></button>
                         </div>
+                        <p class="text-white/60 text-sm mb-4 flex-shrink-0">Enter the number of classes for each subject per day. Leave blank or 0 for days with no classes.</p>
                         <div class="flex-grow overflow-y-auto pr-2">
                            ${timetableHTML}
                         </div>
@@ -609,9 +612,10 @@
                 }).join('\n');
 
                 const timetableString = Object.entries(this.timetable).map(([day, subjects]) => {
+                    if (Object.keys(subjects).length === 0) return null;
                     const subjectDetails = Object.entries(subjects).map(([index, hours]) => `${this.subjects[parseInt(index)]} (${hours} hour/s)`).join(', ');
                     return `- ${day.charAt(0).toUpperCase() + day.slice(1)}: ${subjectDetails}`;
-                }).join('\n');
+                }).filter(Boolean).join('\n');
 
                 if (this.subjects.length === 0 || !timetableString) {
                      recommendationDiv.innerHTML = "Please add your subjects and set your weekly timetable first before asking for a recommendation.";
@@ -659,12 +663,7 @@
                     const candidate = result.candidates?.[0];
                     if (candidate && candidate.content?.parts?.[0]?.text) {
                         const text = candidate.content.parts[0].text;
-                        const formattedText = text
-                            .replace(/\n/g, '<br>')
-                            .replace(/\* (.*?)(<br>|$)/g, '<li>$1</li>')
-                            .replace(/<br><li>/g, '<li>')
-                            .replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>')
-                            .replace(/<\/ul><br><ul>/g, '');
+                        const formattedText = marked.parse(text); // Use Marked.js for proper parsing
 
                         recommendationDiv.innerHTML = `<div class="ai-recommendation-content">${formattedText}</div>`;
 
@@ -678,7 +677,13 @@
                             }
                         }
                     } else {
-                        recommendationDiv.textContent = "Sorry, I couldn't generate a recommendation at this time. The response from the AI was empty.";
+                        let errorMessage = "Sorry, I couldn't generate a recommendation at this time. The response from the AI was empty.";
+                        if (candidate && candidate.finishReason === 'SAFETY') {
+                            errorMessage = "The AI couldn't generate a response due to safety filters. This can sometimes happen with complex data. Please try again or simplify your subject names.";
+                        } else if(result.promptFeedback && result.promptFeedback.blockReason === 'SAFETY'){
+                             errorMessage = "Your request was blocked for safety reasons. Please try rephrasing your subject names or timetable details.";
+                        }
+                        recommendationDiv.textContent = errorMessage;
                     }
                 } catch (error) {
                     console.error("Error fetching AI recommendation:", error);
