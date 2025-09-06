@@ -10,13 +10,10 @@
 
     <!-- Firebase SDK Scripts -->
     <script type="module">
-      // Updated Firebase Imports
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-      import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-analytics.js";
-      import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+      import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
       import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
-      // Your web app's Firebase configuration
       const firebaseConfig = {
         apiKey: "AIzaSyDl26G3Iki090KsKYgS3uG4jDdTYU9bLjw",
         authDomain: "attendance-pro-76984.firebaseapp.com",
@@ -27,104 +24,79 @@
         measurementId: "G-WPDEYXTNFY"
       };
 
-      // Initialize Firebase
       const app = initializeApp(firebaseConfig);
-      const analytics = getAnalytics(app);
       const auth = getAuth(app);
       const db = getFirestore(app);
 
-      // --- This is our main application logic, wrapped to ensure Firebase is ready ---
-      async function main() {
-        // Sign in the user anonymously for this demonstration.
-        // In a real app, this would use the Google Sign-In credentials.
-        await signInAnonymously(auth);
-        const user = auth.currentUser;
-
+      onAuthStateChanged(auth, (user) => {
         if (user) {
-            const userId = user.uid;
-            // Create a reference to the user's specific document in Firestore
-            const userDocRef = doc(db, "users", userId);
-
-            // --- Set up a real-time listener for the user's data ---
-            onSnapshot(userDocRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    // When data changes in the database, update our local variables and re-render the UI
-                    window.appState.subjects = data.subjects || [];
-                    window.appState.attendanceData = data.attendanceData || {};
-                } else {
-                    // If the user is new and has no document, initialize with default data
-                    const defaultData = {
-                        subjects: [
-                            "FRONT END UI/UX DEVELOPMENT", "DIGITAL SYSTEMS AND COMPUTER ARCHITECTURE", "DISCRETE MATHEMATICS", 
-                            "HOLISTIC EDUCATION DEVELOPMENT II", "DATA STRUCTURES", "ENTREPRENEURSHIP AND IPR", 
-                            "OBJECT ORIENTED PROGRAMMING", "HONOURS/MINORS", "PYTHON PROGRAMMING", "ABILITY ENHANCEMENT COURSE III"
-                        ],
-                        attendanceData: {}
-                    };
-                    setDoc(userDocRef, defaultData); // Save this default data to their new document
-                    window.appState.subjects = defaultData.subjects;
-                    window.appState.attendanceData = defaultData.attendanceData;
-                }
-                // Re-render the entire UI whenever data changes
-                window.appState.renderAll();
-            });
-
-            // Make the user document reference globally available for saving data
-            window.appState.userDocRef = userDocRef;
+          main(user);
+        } else {
+          window.location.href = './login.html';
         }
+      });
+
+      function main(user) {
+        const userId = user.uid;
+        const userDocRef = doc(db, "users", userId);
+
+        onSnapshot(userDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                window.appState.subjects = data.subjects || [];
+                window.appState.attendanceData = data.attendanceData || {};
+            } else {
+                const defaultData = {
+                    subjects: [
+                        "FRONT END UI/UX DEVELOPMENT", "DIGITAL SYSTEMS AND COMPUTER ARCHITECTURE", "DISCRETE MATHEMATICS", 
+                        "HOLISTIC EDUCATION DEVELOPMENT II", "DATA STRUCTURES", "ENTREPRENEURSHIP AND IPR", 
+                        "OBJECT ORIENTED PROGRAMMING", "HONOURS/MINORS", "PYTHON PROGRAMMING", "ABILITY ENHANCEMENT COURSE III"
+                    ],
+                    attendanceData: {}
+                };
+                setDoc(userDocRef, defaultData);
+                window.appState.subjects = defaultData.subjects;
+                window.appState.attendanceData = defaultData.attendanceData;
+            }
+            window.appState.renderAll();
+        });
+
+        window.appState.userDocRef = userDocRef;
+        window.appState.auth = auth;
       }
-
-      main();
     </script>
-
     <style>
-        /* Your existing styles remain unchanged */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+        body { font-family: 'Inter', sans-serif; }
         .gradient-bg { background: linear-gradient(135deg, #121212, #1a1a2e); }
+        .glow { animation: glow 2s ease-in-out infinite alternate; }
+        @keyframes glow { from { box-shadow: 0 0 5px rgba(255, 255, 255, 0.1); } to { box-shadow: 0 0 20px rgba(255, 255, 255, 0.3); } }
+        .text-gradient { background: linear-gradient(90deg, #a5b4fc, #818cf8); -webkit-background-clip: text; background-clip: text; color: transparent; }
         .card-hover { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .card-hover:hover { transform: translateY(-8px) scale(1.02); }
+        .mode-button.active { background-color: rgba(79, 70, 229, 0.5); transform: translateY(-4px) scale(1.01); }
         .progress-bar { height: 6px; border-radius: 3px; background-color: rgba(255, 255, 255, 0.1); }
         .progress-fill { height: 100%; border-radius: 3px; transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
         .subject-selector { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .subject-selector:hover { background-color: rgba(255, 255, 255, 0.08); transform: translateX(4px); }
         .subject-selector.selected { background-color: rgba(255, 255, 255, 0.12); border-left: 4px solid #4f46e5; transform: translateX(4px); }
-        #subjectsList::-webkit-scrollbar { width: 6px; }
-        #subjectsList::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); }
-        #subjectsList::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); }
-        .result-card { animation: cardEnter 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
-        @keyframes cardEnter { 0% { opacity: 0; transform: translateY(20px) scale(0.98); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
-        .glow { animation: glow 2s ease-in-out infinite alternate; }
-        @keyframes glow { from { box-shadow: 0 0 5px rgba(255, 255, 255, 0.1); } to { box-shadow: 0 0 20px rgba(255, 255, 255, 0.3); } }
-        .text-gradient { background: linear-gradient(90deg, #a5b4fc, #818cf8); -webkit-background-clip: text; background-clip: text; color: transparent; }
-        .mode-button.active { background-color: rgba(79, 70, 229, 0.5); transform: translateY(-4px) scale(1.01); }
     </style>
 </head>
 <body class="gradient-bg min-h-screen text-white">
-
-    <!-- Fixed Logout Button -->
     <button onclick="window.appState.logout()" title="Logout" class="fixed top-6 right-6 z-50 bg-red-500 hover:bg-red-600 text-white p-3 rounded-full transition-all transform hover:scale-110 shadow-lg">
         <i class="fas fa-sign-out-alt"></i>
     </button>
-
     <div class="container mx-auto px-4 py-8">
-        <!-- Header -->
         <header class="text-center mb-12">
             <div class="inline-block mb-6"><div class="bg-white/5 backdrop-blur-lg rounded-full p-4 shadow-lg glow"><i class="fas fa-calendar-check text-3xl text-gradient"></i></div></div>
             <h1 class="text-5xl md:text-6xl font-bold mb-4 text-gradient">Attendance Pro</h1>
-            <p class="text-xl opacity-90 max-w-2xl mx-auto">Precision tracking for academic excellence. Calculate, optimize, and maintain your perfect attendance.</p>
+            <p class="text-xl opacity-90 max-w-2xl mx-auto">Precision tracking for academic excellence.</p>
         </header>
-
-        <!-- Attendance Overview Section -->
         <div class="mb-10">
             <h2 class="text-3xl font-bold mb-6 text-center">Attendance Overview</h2>
             <div id="attendanceOverview" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"></div>
         </div>
-
-        <!-- Main App Container -->
         <div class="flex flex-col lg:flex-row gap-8">
-            <!-- Left Panel - Subjects List -->
             <div class="lg:w-1/4 bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-2xl font-bold">Your Subjects</h2>
@@ -132,10 +104,7 @@
                 </div>
                 <div class="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto pr-2" id="subjectsList"></div>
             </div>
-
-            <!-- Right Panel - Main Content -->
             <div class="lg:w-3/4 bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg">
-                <!-- Mode Selection -->
                 <div class="mb-8">
                     <h2 class="text-2xl font-bold mb-4">Select Calculation Type</h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -145,7 +114,6 @@
                         <button id="mode-bunk-all" onclick="window.appState.setMode('bunk-all')" class="mode-button card-hover bg-white/10 hover:bg-white/20 rounded-lg p-4 text-left transition-all"><i class="fas fa-couch text-2xl mb-2 text-blue-300"></i><h3 class="font-bold text-lg">All Subjects Bunk</h3><p class="text-sm opacity-80">Calculate bunkable classes across all subjects</p></button>
                     </div>
                 </div>
-                <!-- Input Form & Results -->
                 <div id="inputForm" class="mb-8"></div>
                 <div id="resultsContainer" class="hidden">
                     <h2 class="text-2xl font-bold mb-4">Results</h2>
@@ -154,68 +122,50 @@
             </div>
         </div>
     </div>
-
     <script type="module">
         import { setDoc } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
-
-        // We wrap our entire application logic in a global object
-        // to avoid polluting the global namespace and to make data management cleaner.
+        import { signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+        
         window.appState = {
             subjects: [],
             attendanceData: {},
-            currentMode: '',
+            currentMode: 'attend-single',
             selectedSubjects: [],
-            userDocRef: null, // This will hold the reference to the user's Firestore document
-
-            // --- DATA PERSISTENCE ---
-            // This function now saves the entire state to Firestore
+            userDocRef: null,
+            auth: null,
             async saveData() {
                 if (this.userDocRef) {
-                    try {
-                        await setDoc(this.userDocRef, {
-                            subjects: this.subjects,
-                            attendanceData: this.attendanceData
-                        });
-                    } catch (error) {
-                        console.error("Error saving data to Firestore: ", error);
-                    }
+                    await setDoc(this.userDocRef, { subjects: this.subjects, attendanceData: this.attendanceData });
                 }
             },
-            
             getSubjectData(index) {
                 if (!this.attendanceData[index]) {
                     this.attendanceData[index] = { attended: '', total: '', requiredPerc: 75 };
                 }
                 return this.attendanceData[index];
             },
-
             updateSubjectDataFromInput(e) {
                 const { index, field } = e.target.dataset;
                 const value = e.target.value;
                 const data = this.getSubjectData(index);
                 data[field] = value === '' ? '' : parseFloat(value);
-                this.saveData(); // Save to Firestore on change
+                this.saveData();
             },
-
             logout() {
-                // For a real app with auth, you would sign out here.
-                // For this demo, we'll just clear the flag and redirect.
-                localStorage.removeItem('loggedIn');
-                window.location.href = './login.html';
+                if (this.auth) {
+                    signOut(this.auth);
+                }
             },
-
-            // --- RENDER FUNCTIONS ---
             renderAll() {
                 this.renderSubjectsList();
                 this.renderAttendanceOverview();
                 this.renderInputForm();
             },
-            
             renderAttendanceOverview() {
-                 const container = document.getElementById('attendanceOverview');
+                const container = document.getElementById('attendanceOverview');
                 container.innerHTML = '';
-                if (this.subjects.length === 0) {
-                    container.innerHTML = `<p class="text-center text-white/60 col-span-full">No subjects found.</p>`;
+                if (!this.subjects || this.subjects.length === 0) {
+                    container.innerHTML = `<p class="text-center text-white/60 col-span-full">No subjects found. Add subjects to see your overview.</p>`;
                     return;
                 }
                 this.subjects.forEach((subject, index) => {
@@ -226,23 +176,24 @@
                     const radius = 30;
                     const circumference = 2 * Math.PI * radius;
                     const offset = isNaN(percentage) ? circumference : circumference - (percentage / 100) * circumference;
-                    container.innerHTML += `
-                        <div class="bg-white/10 p-4 rounded-xl flex flex-col items-center justify-center text-center">
-                            <div class="relative w-20 h-20 mb-2">
-                                <svg class="w-full h-full" viewBox="0 0 80 80">
-                                    <circle class="text-white/10" stroke-width="8" stroke="currentColor" fill="transparent" r="${radius}" cx="40" cy="40" />
-                                    <circle class="${colorClass} transition-all" stroke-width="8" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round" stroke="currentColor" fill="transparent" r="${radius}" cx="40" cy="40" transform="rotate(-90 40 40)"/>
-                                </svg>
-                                <span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-bold text-lg ${colorClass}">${isNaN(percentage) ? '--' : Math.floor(percentage) + '%'}</span>
-                            </div>
-                            <p class="text-sm font-medium h-10 leading-tight">${subject}</p>
-                        </div>`;
+                    const card = document.createElement('div');
+                    card.className = "bg-white/10 p-4 rounded-xl flex flex-col items-center justify-center text-center";
+                    card.innerHTML = `
+                        <div class="relative w-20 h-20 mb-2">
+                            <svg class="w-full h-full" viewBox="0 0 80 80">
+                                <circle class="text-white/10" stroke-width="8" stroke="currentColor" fill="transparent" r="${radius}" cx="40" cy="40" />
+                                <circle class="${colorClass} transition-all duration-500" stroke-width="8" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round" stroke="currentColor" fill="transparent" r="${radius}" cx="40" cy="40" transform="rotate(-90 40 40)"/>
+                            </svg>
+                            <span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-bold text-lg ${colorClass}">${isNaN(percentage) ? '--' : Math.floor(percentage) + '%'}</span>
+                        </div>
+                        <p class="text-sm font-medium h-10 leading-tight">${subject}</p>`;
+                    container.appendChild(card);
                 });
             },
             renderSubjectsList() {
-                const container = document.getElementById('subjectsList');
+                 const container = document.getElementById('subjectsList');
                 container.innerHTML = '';
-                if (this.subjects.length === 0) {
+                if (!this.subjects || this.subjects.length === 0) {
                     container.innerHTML = `<div class="text-center py-8 text-white/60"><i class="fas fa-book-open text-3xl mb-3"></i><p>No subjects added yet!</p></div>`;
                     return;
                 }
@@ -256,23 +207,19 @@
             },
             renderInputForm() {
                 const formContainer = document.getElementById('inputForm');
-                
-                if (this.currentMode.includes('single') && this.selectedSubjects.length === 0) {
+                 if (this.currentMode.includes('single') && this.selectedSubjects.length === 0) {
                     formContainer.innerHTML = `<div class="bg-white/10 p-4 rounded-lg text-center"><i class="fas fa-hand-pointer text-2xl mb-2"></i><p>Please select one or more subjects from the left panel.</p></div>`;
                     return;
                 }
-                
                 const isBunkMode = this.currentMode.includes('bunk');
                 const modeKey = isBunkMode ? 'Bunk' : 'Attend';
                 const icon = isBunkMode ? 'fa-bed' : 'fa-calculator';
                 const subjectsToRender = this.currentMode.includes('all') ? this.subjects.map((_, i) => i) : this.selectedSubjects;
-                
-                if (subjectsToRender.length === 0 && this.currentMode.includes('all')) {
+                 if (subjectsToRender.length === 0 && this.currentMode.includes('all')) {
                     formContainer.innerHTML = `<div class="bg-white/10 p-4 rounded-lg text-center"><i class="fas fa-exclamation-circle text-2xl mb-2"></i><p>There are no subjects to calculate.</p></div>`;
                     return;
                 }
-                
-                formContainer.innerHTML = `
+                 formContainer.innerHTML = `
                     <div class="space-y-6">
                         ${subjectsToRender.map(index => {
                             const data = this.getSubjectData(index);
@@ -280,28 +227,15 @@
                             <div class="bg-white/5 backdrop-blur-lg p-6 rounded-xl border border-white/10 shadow-xl">
                                 <h3 class="text-xl font-bold mb-4">${this.subjects[index]}</h3>
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div>
-                                        <label class="block mb-2 text-sm">Hours Attended</label>
-                                        <input type="number" min="0" data-index="${index}" data-field="attended" value="${data.attended}" oninput="window.appState.updateSubjectDataFromInput(event)" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-white/50" placeholder="e.g. 15">
-                                    </div>
-                                    <div>
-                                        <label class="block mb-2 text-sm">Total Classes</label>
-                                        <input type="number" min="0" data-index="${index}" data-field="total" value="${data.total}" oninput="window.appState.updateSubjectDataFromInput(event)" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-white/50" placeholder="e.g. 20">
-                                    </div>
-                                    <div>
-                                        <label class="block mb-2 text-sm">Required %</label>
-                                        <input type="number" min="1" max="99" data-index="${index}" data-field="requiredPerc" value="${data.requiredPerc}" oninput="window.appState.updateSubjectDataFromInput(event)" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-white/50" placeholder="e.g. 75">
-                                    </div>
+                                    <div><label class="block mb-2 text-sm">Hours Attended</label><input type="number" min="0" data-index="${index}" data-field="attended" value="${data.attended}" oninput="window.appState.updateSubjectDataFromInput(event)" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2" placeholder="e.g. 15"></div>
+                                    <div><label class="block mb-2 text-sm">Total Classes</label><input type="number" min="0" data-index="${index}" data-field="total" value="${data.total}" oninput="window.appState.updateSubjectDataFromInput(event)" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2" placeholder="e.g. 20"></div>
+                                    <div><label class="block mb-2 text-sm">Required %</label><input type="number" min="1" max="99" data-index="${index}" data-field="requiredPerc" value="${data.requiredPerc}" oninput="window.appState.updateSubjectDataFromInput(event)" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2" placeholder="e.g. 75"></div>
                                 </div>
                             </div>
                         `}).join('')}
                         <div class="flex items-center gap-4">
-                            <button onclick="window.appState.calculate()" class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold py-3 px-8 rounded-full hover:shadow-lg transition-all transform hover:scale-105">
-                                <span class="flex items-center justify-center">Calculate ${modeKey} <i class="fas ${icon} ml-3"></i></span>
-                            </button>
-                            <button onclick="window.appState.clearInputs()" class="bg-white/10 text-white/80 font-semibold py-3 px-6 rounded-full hover:bg-white/20 transition-all">
-                                Clear
-                            </button>
+                            <button onclick="window.appState.calculate()" class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold py-3 px-8 rounded-full hover:shadow-lg transition-all transform hover:scale-105"><span class="flex items-center justify-center">Calculate ${modeKey} <i class="fas ${icon} ml-3"></i></span></button>
+                            <button onclick="window.appState.clearInputs()" class="bg-white/10 text-white/80 font-semibold py-3 px-6 rounded-full hover:bg-white/20 transition-all">Clear</button>
                         </div>
                     </div>
                 `;
@@ -309,18 +243,14 @@
             showResults(content) {
                 const container = document.getElementById('resultsContainer');
                 const contentDiv = document.getElementById('resultsContent');
-                
                 if (!content || content.trim() === '') {
                     contentDiv.innerHTML = `<div class="bg-white/10 p-4 rounded-lg text-center"><i class="fas fa-info-circle text-2xl mb-2"></i><p>No valid data entered.</p></div>`;
                 } else {
                     contentDiv.innerHTML = content;
                 }
-
                 container.classList.remove('hidden');
                 container.scrollIntoView({ behavior: 'smooth', block: 'start' });
             },
-
-            // --- EVENT HANDLERS & LOGIC ---
             setMode(mode) {
                 this.currentMode = mode;
                 document.querySelectorAll('.mode-button').forEach(btn => btn.classList.remove('active'));
@@ -337,6 +267,108 @@
                 }
                 this.renderSubjectsList();
                 this.renderInputForm();
+            },
+            clearInputs() {
+                const subjectsToClear = this.currentMode.includes('all') ? this.subjects.map((_, i) => i) : this.selectedSubjects;
+                subjectsToClear.forEach(index => {
+                    this.attendanceData[index] = { attended: '', total: '', requiredPerc: 75 };
+                });
+                this.saveData();
+                document.getElementById('resultsContainer').classList.add('hidden');
+            },
+            openEditWindow() {
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4';
+                modal.innerHTML = `
+                    <div class="bg-gray-900 rounded-xl p-6 w-full max-w-2xl max-h-[80vh] flex flex-col">
+                        <div class="flex justify-between items-center mb-6 flex-shrink-0">
+                            <h2 class="text-2xl font-bold">Edit Subjects</h2>
+                            <button onclick="this.closest('.fixed').remove()" class="text-white/60 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+                        </div>
+                        <div class="flex-grow overflow-y-auto pr-2 space-y-2 mb-6" id="editSubjectsList"></div>
+                        <div class="border-t border-white/10 pt-4 flex-shrink-0">
+                            <h3 class="font-semibold mb-3">Add New Subject</h3>
+                            <div class="flex gap-2">
+                                <input type="text" id="newSubjectInput" placeholder="Enter subject name" class="flex-1 bg-white/10 border border-white/20 rounded-lg px-4 py-2">
+                                <button onclick="window.appState.addNewSubject()" class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg">Add</button>
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-3 mt-6 flex-shrink-0">
+                            <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-lg border border-white/20 hover:bg-white/10">Cancel</button>
+                            <button onclick="window.appState.saveSubjectChanges(this)" class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg">Save Changes</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                
+                const editList = document.getElementById('editSubjectsList');
+                if (this.subjects && this.subjects.length > 0) {
+                    this.subjects.forEach((subject) => {
+                        const div = document.createElement('div');
+                        div.className = 'flex items-center gap-3 p-3 bg-white/5 rounded-lg';
+                        div.innerHTML = `
+                            <input type="text" value="${subject}" class="edit-subject-input flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-1">
+                            <button onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-300"><i class="fas fa-trash"></i></button>
+                        `;
+                        editList.appendChild(div);
+                    });
+                } else {
+                    editList.innerHTML = `<p class="text-center text-white/50">No subjects yet. Add one below.</p>`;
+                }
+            },
+            addNewSubject() {
+                const input = document.getElementById('newSubjectInput');
+                const name = input.value.trim();
+                if (name) {
+                    const editList = document.getElementById('editSubjectsList');
+                    if (editList.querySelector('p')) { editList.innerHTML = ''; }
+                    
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center gap-3 p-3 bg-white/5 rounded-lg';
+                    div.innerHTML = `
+                        <input type="text" value="${name}" class="edit-subject-input flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-1">
+                        <button onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-300"><i class="fas fa-trash"></i></button>
+                    `;
+                    editList.appendChild(div);
+                    input.value = '';
+                    input.focus();
+                }
+            },
+            saveSubjectChanges(button) {
+                const inputs = document.querySelectorAll('.edit-subject-input');
+                const newSubjects = [];
+                inputs.forEach(input => {
+                    const name = input.value.trim();
+                    if (name) newSubjects.push(name);
+                });
+                
+                this.subjects = newSubjects;
+                this.selectedSubjects = [];
+                this.attendanceData = {};
+                this.saveData();
+                
+                // This is the fix: manually call renderAll() to update the UI immediately.
+                this.renderAll();
+
+                button.closest('.fixed').remove();
+            },
+            calculateNeededClasses(attended, total, requiredPerc) {
+                if (isNaN(attended) || isNaN(total) || isNaN(requiredPerc) || total < 0 || attended < 0) return { error: "Invalid input."};
+                if (attended > total) return { error: "Attended cannot be more than total." };
+                if (requiredPerc >= 100) return { classesNeeded: Infinity };
+                const currentPerc = total > 0 ? (attended / total) * 100 : 0;
+                if (currentPerc >= requiredPerc) return { classesNeeded: 0 };
+                const numerator = (requiredPerc / 100) * total - attended;
+                const denominator = 1 - (requiredPerc / 100);
+                return { classesNeeded: Math.ceil(numerator / denominator) };
+            },
+            calculateBunkableClasses(attended, total, requiredPerc) {
+                 if (isNaN(attended) || isNaN(total) || isNaN(requiredPerc) || total < 0 || attended < 0) return { error: "Invalid input."};
+                if (attended > total) return { error: "Attended cannot be more than total." };
+                const currentPerc = total > 0 ? (attended / total) * 100 : 0;
+                if (currentPerc < requiredPerc) return { bunkableClasses: 0 };
+                const requiredDecimal = requiredPerc / 100;
+                return { bunkableClasses: Math.floor((attended - requiredDecimal * total) / requiredDecimal) };
             },
             calculate() {
                 let resultsHTML = '';
@@ -369,7 +401,7 @@
                     } else {
                         const { classesNeeded } = result;
                         if (classesNeeded === Infinity) {
-                            resultsHTML += `<div class="result-card bg-yellow-500/20 p-4 rounded-lg"><h4 class="font-bold">${this.subjects[index]}</h4><p>Target of ${requiredPerc}% is impossible to achieve.</p></div>`;
+                            resultsHTML += `<div class="result-card bg-yellow-500/20 p-4 rounded-lg"><h4 class="font-bold">${this.subjects[index]}</h4><p>Target of ${requiredPerc}% is impossible.</p></div>`;
                             return;
                         }
                         summaryValue += classesNeeded;
@@ -383,21 +415,10 @@
                 
                 this.showResults(resultsHTML);
             },
-            clearInputs() {
-                const subjectsToClear = this.currentMode.includes('all') ? this.subjects.map((_, i) => i) : this.selectedSubjects;
-                subjectsToClear.forEach(index => {
-                    this.attendanceData[index] = { attended: '', total: '', requiredPerc: 75 };
-                });
-                this.saveData(); // Save the cleared data
-                document.getElementById('resultsContainer').classList.add('hidden');
-            },
-            
-            // --- RESULT CARD GENERATORS ---
             generateAttendResultCard(index, data) {
                 const { attended, total, requiredPerc, currentPerc, classesNeeded } = data;
                 const futureAttended = attended + classesNeeded;
                 const futureTotal = total + classesNeeded;
-                const futurePerc = futureTotal > 0 ? (futureAttended / futureTotal) * 100 : 100;
                 return `
                 <div class="result-card bg-white/10 p-6 rounded-lg">
                     <h3 class="text-xl font-bold mb-4">${this.subjects[index]}</h3>
@@ -410,10 +431,7 @@
                         <div class="bg-white/5 p-3 rounded-lg"><p class="text-xs opacity-70">Status After Attending</p><p class="font-bold">${futureAttended} / ${futureTotal}</p></div>
                     </div>
                     <div class="mt-4 p-3 rounded-lg text-center ${classesNeeded > 0 ? 'bg-green-500/20 text-green-300' : 'bg-blue-500/20 text-blue-300'}">
-                        ${classesNeeded > 0
-                            ? `You need to attend <span class="font-bold text-xl">${classesNeeded}</span> more class(es).`
-                            : `You are safe! Your attendance is already above ${requiredPerc}%.`
-                        }
+                        ${classesNeeded > 0 ? `You need to attend <span class="font-bold text-xl">${classesNeeded}</span> more class(es).` : `You are safe!`}
                     </div>
                 </div>`;
             },
@@ -426,111 +444,21 @@
                     <h3 class="text-xl font-bold mb-4">${this.subjects[index]}</h3>
                     <div class="mb-4">
                         <div class="flex justify-between mb-1 text-sm"><span>Current: ${currentPerc.toFixed(2)}%</span><span>Minimum: ${requiredPerc}%</span></div>
-                        <div class="relative progress-bar">
-                            <div class="progress-fill bg-green-400" style="width: ${Math.min(currentPerc, 100)}%"></div>
-                            <div class="absolute h-full border-l-2 border-red-500" style="left: ${requiredPerc}%" title="Minimum ${requiredPerc}%"></div>
-                        </div>
+                        <div class="relative progress-bar"><div class="progress-fill bg-green-400" style="width: ${Math.min(currentPerc, 100)}%"></div><div class="absolute h-full border-l-2 border-red-500" style="left: ${requiredPerc}%"></div></div>
                     </div>
                     <div class="p-4 rounded-lg text-center ${bunkableClasses > 0 ? 'bg-blue-500/20 text-blue-300' : 'bg-yellow-500/20 text-yellow-300'}">
                         You can safely bunk <span class="font-bold text-2xl">${bunkableClasses}</span> class(es).
                     </div>
                     <div class="mt-3 p-3 text-xs opacity-80 bg-white/5 rounded-lg">
-                        After bunking ${bunkableClasses}, your attendance will be <strong>${percAfterBunk.toFixed(2)}%</strong>. Bunking one more will drop it to <strong>${percAfterOneMoreBunk.toFixed(2)}%</strong>.
+                        After bunking ${bunkableClasses}, attendance will be <strong>${percAfterBunk.toFixed(2)}%</strong>. Bunking one more will drop it to <strong>${percAfterOneMoreBunk.toFixed(2)}%</strong>.
                     </div>
                 </div>`;
             },
             generateAttendSummaryCard(totalNeeded) {
-                return `
-                <div class="result-card bg-indigo-500/30 p-6 rounded-lg mt-6 border border-indigo-400/50 text-center">
-                    <h3 class="text-xl font-bold mb-2">Total Summary</h3>
-                    <p class="mb-3">Across all valid selected subjects, you need to attend a total of:</p>
-                    <div class="text-5xl font-bold text-white">${totalNeeded}</div>
-                    <p>classes.</p>
-                </div>`;
+                return `<div class="result-card bg-indigo-500/30 p-6 rounded-lg mt-6 border border-indigo-400/50 text-center"><h3 class="text-xl font-bold mb-2">Total Summary</h3><p class="mb-3">Across all valid selected subjects, you need to attend a total of:</p><div class="text-5xl font-bold text-white">${totalNeeded}</div><p>classes.</p></div>`;
             },
             generateBunkSummaryCard(totalBunkable) {
-                return `
-                <div class="result-card bg-blue-500/30 p-6 rounded-lg mt-6 border border-blue-400/50 text-center">
-                    <h3 class="text-xl font-bold mb-2">Total Summary</h3>
-                    <p class="mb-3">Across all valid selected subjects, you can safely bunk a total of:</p>
-                    <div class="text-5xl font-bold text-white">${totalBunkable}</div>
-                    <p>classes.</p>
-                </div>`;
-            },
-
-            // --- SUBJECT MANAGEMENT (MODAL) ---
-            openEditWindow() {
-                const modal = document.createElement('div');
-                modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4';
-                modal.innerHTML = `
-                    <div class="bg-gray-900 rounded-xl p-6 w-full max-w-2xl max-h-[80vh] flex flex-col">
-                        <div class="flex justify-between items-center mb-6 flex-shrink-0">
-                            <h2 class="text-2xl font-bold">Edit Subjects</h2>
-                            <button onclick="this.closest('.fixed').remove()" class="text-white/60 hover:text-white"><i class="fas fa-times text-xl"></i></button>
-                        </div>
-                        <div class="flex-grow overflow-y-auto pr-2 space-y-2 mb-6" id="editSubjectsList"></div>
-                        <div class="border-t border-white/10 pt-4 flex-shrink-0">
-                            <h3 class="font-semibold mb-3">Add New Subject</h3>
-                            <div class="flex gap-2">
-                                <input type="text" id="newSubjectInput" placeholder="Enter subject name" class="flex-1 bg-white/10 border border-white/20 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-white/50">
-                                <button onclick="window.appState.addNewSubject()" class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg">Add</button>
-                            </div>
-                        </div>
-                        <div class="flex justify-end gap-3 mt-6 flex-shrink-0">
-                            <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-lg border border-white/20 hover:bg-white/10">Cancel</button>
-                            <button onclick="window.appState.saveSubjectChanges(this)" class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg">Save Changes</button>
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(modal);
-                
-                const editList = document.getElementById('editSubjectsList');
-                if (this.subjects.length > 0) {
-                    this.subjects.forEach((subject) => {
-                        const div = document.createElement('div');
-                        div.className = 'flex items-center gap-3 p-3 bg-white/5 rounded-lg';
-                        div.innerHTML = `
-                            <input type="text" value="${subject}" class="edit-subject-input flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-1 focus:outline-none focus:ring-1 focus:ring-white/50">
-                            <button onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-300"><i class="fas fa-trash"></i></button>
-                        `;
-                        editList.appendChild(div);
-                    });
-                } else {
-                    editList.innerHTML = `<p class="text-center text-white/50">No subjects yet. Add one below.</p>`;
-                }
-            },
-            addNewSubject() {
-                const input = document.getElementById('newSubjectInput');
-                const name = input.value.trim();
-                if (name) {
-                    const editList = document.getElementById('editSubjectsList');
-                    if (editList.querySelector('p')) { editList.innerHTML = ''; }
-                    
-                    const div = document.createElement('div');
-                    div.className = 'flex items-center gap-3 p-3 bg-white/5 rounded-lg';
-                    div.innerHTML = `
-                        <input type="text" value="${name}" class="edit-subject-input flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-1 focus:outline-none focus:ring-1 focus:ring-white/50">
-                        <button onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-300"><i class="fas fa-trash"></i></button>
-                    `;
-                    editList.appendChild(div);
-                    input.value = '';
-                    input.focus();
-                }
-            },
-            saveSubjectChanges(button) {
-                const inputs = document.querySelectorAll('.edit-subject-input');
-                const newSubjects = [];
-                inputs.forEach(input => {
-                    const name = input.value.trim();
-                    if (name) newSubjects.push(name);
-                });
-                
-                this.subjects = newSubjects;
-                this.selectedSubjects = [];
-                this.attendanceData = {};
-                this.saveData(); // Save the new subjects list and cleared data
-                
-                button.closest('.fixed').remove();
+                return `<div class="result-card bg-blue-500/30 p-6 rounded-lg mt-6 border border-blue-400/50 text-center"><h3 class="text-xl font-bold mb-2">Total Summary</h3><p class="mb-3">Across all valid selected subjects, you can safely bunk a total of:</p><div class="text-5xl font-bold text-white">${totalBunkable}</div><p>classes.</p></div>`;
             }
         };
     </script>
