@@ -36,7 +36,9 @@
         </header>
         
         <div class="login-card rounded-xl p-8 shadow-xl">
-            <h2 class="text-2xl font-bold text-center mb-6 text-white/90">Welcome</h2>
+            <h2 id="form-title" class="text-2xl font-bold text-center mb-6 text-white/90">Welcome</h2>
+            
+            <!-- Google Sign-In Button -->
             <div id="g_id_signin"
                  data-type="standard"
                  data-size="large"
@@ -45,16 +47,44 @@
                  data-shape="rectangular"
                  data-logo_alignment="left">
             </div>
+
+            <!-- Divider -->
+            <div class="flex items-center my-6">
+                <div class="flex-grow border-t border-white/20"></div>
+                <span class="mx-4 text-white/60 text-sm">OR</span>
+                <div class="flex-grow border-t border-white/20"></div>
+            </div>
+
+            <!-- Email/Password Form -->
+            <form id="emailForm">
+                <div class="mb-4">
+                    <label for="email" class="block text-white/80 text-sm mb-2">Email</label>
+                    <input type="email" id="email" class="w-full bg-white/10 border border-white/30 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/50" required>
+                </div>
+                <div class="mb-6">
+                    <label for="password" class="block text-white/80 text-sm mb-2">Password</label>
+                    <input type="password" id="password" class="w-full bg-white/10 border border-white/30 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/50" required>
+                </div>
+                <button id="submit-button" type="submit" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold py-3 px-4 rounded-lg hover:shadow-lg transition-all">
+                    Sign In
+                </button>
+            </form>
+            
             <div id="errorMessage" class="text-red-400 text-sm text-center mt-4"></div>
+            
+            <div class="mt-6 text-center">
+                <p id="toggle-text" class="text-white/60 text-sm">
+                    Don't have an account? <a href="#" id="auth-toggle-link" class="text-indigo-400 hover:text-indigo-300">Sign up</a>
+                </p>
+            </div>
         </div>
     </div>
 
     <!-- Firebase SDK Scripts -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-      import { getAuth, GoogleAuthProvider, signInWithCredential } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+      import { getAuth, GoogleAuthProvider, signInWithCredential, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 
-      // Your web app's Firebase configuration
       const firebaseConfig = {
         apiKey: "AIzaSyDl26G3Iki090KsKYgS3uG4jDdTYU9bLjw",
         authDomain: "attendance-pro-76984.firebaseapp.com",
@@ -65,28 +95,82 @@
         measurementId: "G-WPDEYXTNFY"
       };
 
-      // Initialize Firebase
       const app = initializeApp(firebaseConfig);
       const auth = getAuth(app);
 
-      // This function is called by the Google SDK after a successful sign-in
+      // --- Google Sign-In Handler ---
       window.handleCredentialResponse = async (response) => {
         try {
-          // Create a Google credential with the ID token.
           const idToken = response.credential;
           const credential = GoogleAuthProvider.credential(idToken);
-          
-          // Sign in with the credential.
           await signInWithCredential(auth, credential);
-
-          // On successful sign-in, redirect to the main app page.
           window.location.href = './index.html';
-
         } catch (error) {
-          console.error("Firebase sign-in error:", error);
-          document.getElementById('errorMessage').textContent = 'Failed to sign in. Please try again.';
+          console.error("Firebase Google sign-in error:", error);
+          document.getElementById('errorMessage').textContent = 'Failed to sign in with Google.';
         }
       };
+
+      // --- Email/Password Form Logic ---
+      const emailForm = document.getElementById('emailForm');
+      const submitButton = document.getElementById('submit-button');
+      const authToggleLink = document.getElementById('auth-toggle-link');
+      const toggleText = document.getElementById('toggle-text');
+      const errorMessageDiv = document.getElementById('errorMessage');
+      
+      let isSignUpMode = false;
+
+      authToggleLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        isSignUpMode = !isSignUpMode;
+        
+        if (isSignUpMode) {
+          submitButton.textContent = 'Sign Up';
+          toggleText.innerHTML = 'Already have an account? <a href="#" id="auth-toggle-link" class="text-indigo-400 hover:text-indigo-300">Sign in</a>';
+        } else {
+          submitButton.textContent = 'Sign In';
+          toggleText.innerHTML = `Don't have an account? <a href="#" id="auth-toggle-link" class="text-indigo-400 hover:text-indigo-300">Sign up</a>`;
+        }
+        // Re-add event listener to the new link
+        document.getElementById('auth-toggle-link').addEventListener('click', arguments.callee);
+      });
+
+      emailForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        errorMessageDiv.textContent = '';
+
+        try {
+          if (isSignUpMode) {
+            // Sign Up
+            await createUserWithEmailAndPassword(auth, email, password);
+          } else {
+            // Sign In
+            await signInWithEmailAndPassword(auth, email, password);
+          }
+          window.location.href = './index.html';
+        } catch (error) {
+          console.error(`Firebase error (${error.code}):`, error.message);
+          switch (error.code) {
+            case 'auth/invalid-email':
+              errorMessageDiv.textContent = 'Please enter a valid email address.';
+              break;
+            case 'auth/weak-password':
+              errorMessageDiv.textContent = 'Password should be at least 6 characters.';
+              break;
+            case 'auth/email-already-in-use':
+              errorMessageDiv.textContent = 'This email is already in use.';
+              break;
+            case 'auth/invalid-credential':
+              errorMessageDiv.textContent = 'Invalid email or password.';
+              break;
+            default:
+              errorMessageDiv.textContent = 'An error occurred. Please try again.';
+              break;
+          }
+        }
+      });
     </script>
 </body>
 </html>
