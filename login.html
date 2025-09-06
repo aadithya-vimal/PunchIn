@@ -17,6 +17,9 @@
         @keyframes glow { from { box-shadow: 0 0 5px rgba(255, 255, 255, 0.1); } to { box-shadow: 0 0 20px rgba(255, 255, 255, 0.3); } }
         .text-gradient { background: linear-gradient(90deg, #a5b4fc, #818cf8); -webkit-background-clip: text; background-clip: text; color: transparent; }
         .login-card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        /* Style to smoothly show/hide confirm password field */
+        .form-field-hidden { max-height: 0; opacity: 0; transform: scaleY(0.8); margin-bottom: 0 !important; padding: 0; overflow: hidden; transition: all 0.3s ease-in-out; }
+        .form-field-visible { max-height: 100px; opacity: 1; transform: scaleY(1); transition: all 0.3s ease-in-out; }
     </style>
 </head>
 <body class="gradient-bg min-h-screen flex items-center justify-center p-4 text-white">
@@ -61,9 +64,14 @@
                     <label for="email" class="block text-white/80 text-sm mb-2">Email</label>
                     <input type="email" id="email" class="w-full bg-white/10 border border-white/30 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/50" required>
                 </div>
-                <div class="mb-6">
+                <div class="mb-4">
                     <label for="password" class="block text-white/80 text-sm mb-2">Password</label>
                     <input type="password" id="password" class="w-full bg-white/10 border border-white/30 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/50" required>
+                </div>
+                <!-- NEW: Confirm Password Field -->
+                <div id="confirm-password-field" class="mb-6 form-field-hidden">
+                    <label for="confirm-password" class="block text-white/80 text-sm mb-2">Confirm Password</label>
+                    <input type="password" id="confirm-password" class="w-full bg-white/10 border border-white/30 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/50">
                 </div>
                 <button id="submit-button" type="submit" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold py-3 px-4 rounded-lg hover:shadow-lg transition-all">
                     Sign In
@@ -116,27 +124,33 @@
       const submitButton = document.getElementById('submit-button');
       const toggleText = document.getElementById('toggle-text');
       const errorMessageDiv = document.getElementById('errorMessage');
+      const confirmPasswordField = document.getElementById('confirm-password-field');
+      const confirmPasswordInput = document.getElementById('confirm-password');
       
       let isSignUpMode = false;
 
-      // This function handles switching between Sign In and Sign Up modes.
       function toggleAuthMode(e) {
         if (e) e.preventDefault();
         isSignUpMode = !isSignUpMode;
+        errorMessageDiv.textContent = ''; // Clear errors on toggle
         
         if (isSignUpMode) {
           submitButton.textContent = 'Sign Up';
           toggleText.innerHTML = 'Already have an account? <a href="#" id="auth-toggle-link" class="text-indigo-400 hover:text-indigo-300">Sign in</a>';
+          confirmPasswordField.classList.remove('form-field-hidden');
+          confirmPasswordField.classList.add('form-field-visible');
+          confirmPasswordInput.required = true;
         } else {
           submitButton.textContent = 'Sign In';
           toggleText.innerHTML = `Don't have an account? <a href="#" id="auth-toggle-link" class="text-indigo-400 hover:text-indigo-300">Sign up</a>`;
+          confirmPasswordField.classList.remove('form-field-visible');
+          confirmPasswordField.classList.add('form-field-hidden');
+          confirmPasswordInput.required = false;
         }
         
-        // After changing the HTML, we need to find the new link and attach the listener to it.
         document.getElementById('auth-toggle-link').addEventListener('click', toggleAuthMode);
       }
       
-      // Attach the initial event listener.
       document.getElementById('auth-toggle-link').addEventListener('click', toggleAuthMode);
 
       emailForm.addEventListener('submit', async (e) => {
@@ -147,10 +161,13 @@
 
         try {
           if (isSignUpMode) {
-            // Sign Up
+            const confirmPassword = confirmPasswordInput.value;
+            if (password !== confirmPassword) {
+              errorMessageDiv.textContent = 'Passwords do not match.';
+              return; // Stop the function
+            }
             await createUserWithEmailAndPassword(auth, email, password);
           } else {
-            // Sign In
             await signInWithEmailAndPassword(auth, email, password);
           }
           window.location.href = './index.html';
