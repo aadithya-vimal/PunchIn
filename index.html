@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Punch.In</title>
+    <title>PunchIn</title>
     <link rel="icon" type="image/x-icon" href="AttendanceApplication.ico">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -52,11 +52,7 @@
                 newAttendanceData = data.attendanceData || {};
             } else {
                  const defaultData = {
-                    subjects: [
-                        "FRONT END UI/UX DEVELOPMENT", "DIGITAL SYSTEMS AND COMPUTER ARCHITECTURE", "DISCRETE MATHEMATICS", 
-                        "HOLISTIC EDUCATION DEVELOPMENT II", "DATA STRUCTURES", "ENTREPRENEURSHIP AND IPR", 
-                        "OBJECT ORIENTED PROGRAMMING", "HONOURS/MINORS", "PYTHON PROGRAMMING", "ABILITY ENHANCEMENT COURSE III"
-                    ],
+                    subjects: [],
                     attendanceData: {}
                 };
                 setDoc(userDocRef, defaultData);
@@ -70,15 +66,11 @@
             window.appState.attendanceData = newAttendanceData;
 
             if (isFirstLoad) {
-                // On the very first data load, set a default mode and render everything
-                window.appState.currentMode = 'attend-single';
                 window.appState.renderAll();
                 isFirstLoad = false;
             } else if (oldSubjectsJSON !== newSubjectsJSON) {
-                // If subjects were added/removed, do a full re-render
                 window.appState.renderAll();
             } else {
-                // If only attendance numbers changed, just update the overview
                 window.appState.renderAttendanceOverview();
             }
         });
@@ -113,7 +105,7 @@
     <div class="container mx-auto px-4 py-8">
         <header class="text-center mb-12">
             <div class="inline-block mb-6"><div class="bg-white/5 backdrop-blur-lg rounded-full p-4 shadow-lg glow"><i class="fas fa-calendar-check text-3xl text-gradient"></i></div></div>
-            <h1 class="text-5xl md:text-6xl font-bold mb-4 text-gradient">Punch.In</h1>
+            <h1 class="text-5xl md:text-6xl font-bold mb-4 text-gradient">PunchIn</h1>
             <p class="text-xl opacity-90 max-w-2xl mx-auto">Precision tracking for academic excellence.</p>
         </header>
         <div class="mb-10">
@@ -153,7 +145,7 @@
         window.appState = {
             subjects: [],
             attendanceData: {},
-            currentMode: '',
+            currentMode: 'attend-single',
             selectedSubjects: [],
             userDocRef: null,
             auth: null,
@@ -182,6 +174,7 @@
                 }
             },
             renderAll() {
+                if (!this.currentMode) this.currentMode = 'attend-single';
                 this.renderSubjectsList();
                 this.renderAttendanceOverview();
                 this.renderInputForm();
@@ -237,6 +230,7 @@
             },
             renderInputForm() {
                 const formContainer = document.getElementById('inputForm');
+                if (!this.currentMode) this.currentMode = 'attend-single';
                 if (this.currentMode.includes('single') && this.selectedSubjects.length === 0) {
                     formContainer.innerHTML = `<div class="bg-white/10 p-4 rounded-lg text-center"><i class="fas fa-hand-pointer text-2xl mb-2"></i><p>Please select one or more subjects from the left panel.</p></div>`;
                     return;
@@ -336,6 +330,14 @@
                     </div>
                 `;
                 document.body.appendChild(modal);
+
+                const newSubjectInput = document.getElementById('newSubjectInput');
+                newSubjectInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        window.appState.addNewSubject();
+                    }
+                });
                 
                 const editList = document.getElementById('editSubjectsList');
                 if (this.subjects && this.subjects.length > 0) {
@@ -380,7 +382,13 @@
                 
                 this.subjects = newSubjects;
                 this.selectedSubjects = [];
-                this.saveData(); 
+                this.attendanceData = {};
+                
+                // Manually trigger a re-render for instant UI feedback
+                this.renderAll(); 
+                // Save the data to Firebase in the background
+                this.saveData();
+                
                 button.closest('.fixed').remove();
             },
             calculateNeededClasses(attended, total, requiredPerc) {
