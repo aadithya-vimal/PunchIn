@@ -536,27 +536,28 @@
                 const modal = document.createElement('div');
                 modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4';
                 
-                const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
                 let timetableHTML = '';
 
                 if (this.subjects.length === 0) {
                     timetableHTML = `<p class="text-center text-white/60 col-span-full">Please add subjects first before setting a timetable.</p>`;
                 } else {
-                    timetableHTML = days.map(day => `
-                        <div class="bg-white/5 p-4 rounded-lg">
-                            <h4 class="font-bold text-lg mb-3">${day}</h4>
-                            <div class="space-y-2">
-                                ${this.subjects.map((subject, index) => `
-                                    <label class="flex items-center space-x-3 cursor-pointer">
-                                        <input type="checkbox" data-day="${day.toLowerCase()}" data-subject-index="${index}" 
-                                               class="form-checkbox h-5 w-5 bg-white/20 border-white/30 text-indigo-500 focus:ring-indigo-500/50"
-                                               ${(this.timetable[day.toLowerCase()] || []).includes(index) ? 'checked' : ''}>
-                                        <span class="text-sm">${subject}</span>
-                                    </label>
-                                `).join('')}
-                            </div>
+                    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                    timetableHTML = `
+                        <div class="grid grid-cols-8 gap-2 text-center font-bold mb-2 sticky top-0 bg-gray-900 py-2">
+                            <div class="col-span-2">Subject</div>
+                            ${days.map(day => `<div>${day.substring(0,3)}</div>`).join('')}
                         </div>
-                    `).join('');
+                        ${this.subjects.map((subject, index) => `
+                            <div class="grid grid-cols-8 gap-2 items-center py-2 border-b border-white/10">
+                                <div class="col-span-2 text-sm text-left truncate pr-2">${subject}</div>
+                                ${days.map(day => {
+                                    const dayKey = day.toLowerCase();
+                                    const value = (this.timetable[dayKey] && this.timetable[dayKey][index]) || '';
+                                    return `<div><input type="number" min="0" max="10" data-day="${dayKey}" data-subject-index="${index}" value="${value}" class="timetable-input w-12 bg-white/10 text-center rounded-md p-1"></div>`
+                                }).join('')}
+                            </div>
+                        `).join('')}
+                    `;
                 }
 
                 modal.innerHTML = `
@@ -565,7 +566,7 @@
                             <h2 class="text-2xl font-bold">Set Weekly Timetable</h2>
                             <button onclick="this.closest('.fixed').remove()" class="text-white/60 hover:text-white"><i class="fas fa-times text-xl"></i></button>
                         </div>
-                        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 flex-grow overflow-y-auto pr-2">
+                        <div class="flex-grow overflow-y-auto pr-2">
                            ${timetableHTML}
                         </div>
                         <div class="flex justify-end gap-3 mt-6 flex-shrink-0">
@@ -576,25 +577,25 @@
                 `;
                 document.body.appendChild(modal);
             },
-
             saveTimetable(button) {
                 const newTimetable = {};
-                const checkboxes = document.querySelectorAll('.form-checkbox');
-                checkboxes.forEach(cb => {
-                    const day = cb.dataset.day;
-                    const subjectIndex = parseInt(cb.dataset.subjectIndex);
+                const inputs = document.querySelectorAll('.timetable-input');
+                inputs.forEach(input => {
+                    const day = input.dataset.day;
+                    const subjectIndex = parseInt(input.dataset.subjectIndex);
+                    const hours = parseInt(input.value);
+
                     if (!newTimetable[day]) {
-                        newTimetable[day] = [];
+                        newTimetable[day] = {};
                     }
-                    if (cb.checked) {
-                        newTimetable[day].push(subjectIndex);
+                    if (hours > 0) {
+                        newTimetable[day][subjectIndex] = hours;
                     }
                 });
                 this.timetable = newTimetable;
                 this.saveData();
                 button.closest('.fixed').remove();
             },
-
             async getAIRecommendation() {
                 const recommendationDiv = document.getElementById('ai-recommendation');
                 const sourcesDiv = document.getElementById('ai-sources');
@@ -607,9 +608,9 @@
                     return `- ${subject}: ${percentage}%`;
                 }).join('\n');
 
-                const timetableString = Object.entries(this.timetable).map(([day, subjectIndices]) => {
-                    const subjectNames = subjectIndices.map(index => this.subjects[index]).join(', ');
-                    return `- ${day.charAt(0).toUpperCase() + day.slice(1)}: ${subjectNames}`;
+                const timetableString = Object.entries(this.timetable).map(([day, subjects]) => {
+                    const subjectDetails = Object.entries(subjects).map(([index, hours]) => `${this.subjects[parseInt(index)]} (${hours} hour/s)`).join(', ');
+                    return `- ${day.charAt(0).toUpperCase() + day.slice(1)}: ${subjectDetails}`;
                 }).join('\n');
 
                 if (this.subjects.length === 0 || !timetableString) {
@@ -625,7 +626,7 @@
                     Here is my current attendance status:
                     ${attendanceStatus}
 
-                    Here is my weekly timetable:
+                    Here is my weekly timetable (showing hours per subject per day):
                     ${timetableString}
 
                     First, find public holidays in Bengaluru, Karnataka, India for the next 3 months.
@@ -688,3 +689,4 @@
     </script>
 </body>
 </html>
+
