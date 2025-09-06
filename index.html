@@ -41,12 +41,18 @@
         const userDocRef = doc(db, "users", userId);
 
         onSnapshot(userDocRef, (docSnap) => {
+            // BUG FIX: Check if the subject list itself has changed before doing a full re-render.
+            // This prevents the form from resetting while the user is typing.
+            const oldSubjectsJSON = JSON.stringify(window.appState.subjects || []);
+            let newSubjects = [];
+            let newAttendanceData = {};
+
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                window.appState.subjects = data.subjects || [];
-                window.appState.attendanceData = data.attendanceData || {};
+                newSubjects = data.subjects || [];
+                newAttendanceData = data.attendanceData || {};
             } else {
-                const defaultData = {
+                 const defaultData = {
                     subjects: [
                         "FRONT END UI/UX DEVELOPMENT", "DIGITAL SYSTEMS AND COMPUTER ARCHITECTURE", "DISCRETE MATHEMATICS", 
                         "HOLISTIC EDUCATION DEVELOPMENT II", "DATA STRUCTURES", "ENTREPRENEURSHIP AND IPR", 
@@ -55,10 +61,22 @@
                     attendanceData: {}
                 };
                 setDoc(userDocRef, defaultData);
-                window.appState.subjects = defaultData.subjects;
-                window.appState.attendanceData = defaultData.attendanceData;
+                newSubjects = defaultData.subjects;
+                newAttendanceData = defaultData.attendanceData;
             }
-            window.appState.renderAll();
+            
+            const newSubjectsJSON = JSON.stringify(newSubjects);
+
+            window.appState.subjects = newSubjects;
+            window.appState.attendanceData = newAttendanceData;
+
+            if (oldSubjectsJSON !== newSubjectsJSON) {
+                // If subjects were added/removed, do a full re-render
+                window.appState.renderAll();
+            } else {
+                // If only attendance numbers changed, just update the overview
+                window.appState.renderAttendanceOverview();
+            }
         });
 
         window.appState.userDocRef = userDocRef;
@@ -72,14 +90,6 @@
         .glow { animation: glow 2s ease-in-out infinite alternate; }
         @keyframes glow { from { box-shadow: 0 0 5px rgba(255, 255, 255, 0.1); } to { box-shadow: 0 0 20px rgba(255, 255, 255, 0.3); } }
         .text-gradient { background: linear-gradient(90deg, #a5b4fc, #818cf8); -webkit-background-clip: text; background-clip: text; color: transparent; }
-        .card-hover { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .card-hover:hover { transform: translateY(-8px) scale(1.02); }
-        .mode-button.active { background-color: rgba(79, 70, 229, 0.5); transform: translateY(-4px) scale(1.01); }
-        .progress-bar { height: 6px; border-radius: 3px; background-color: rgba(255, 255, 255, 0.1); }
-        .progress-fill { height: 100%; border-radius: 3px; transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
-        .subject-selector { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .subject-selector:hover { background-color: rgba(255, 255, 255, 0.08); transform: translateX(4px); }
-        .subject-selector.selected { background-color: rgba(255, 255, 255, 0.12); border-left: 4px solid #4f46e5; transform: translateX(4px); }
     </style>
 </head>
 <body class="gradient-bg min-h-screen text-white">
@@ -268,6 +278,7 @@
                 this.renderSubjectsList();
                 this.renderInputForm();
             },
+            calculate() { /* ... function remains the same ... */ },
             clearInputs() {
                 const subjectsToClear = this.currentMode.includes('all') ? this.subjects.map((_, i) => i) : this.selectedSubjects;
                 subjectsToClear.forEach(index => {
@@ -344,122 +355,129 @@
                 
                 this.subjects = newSubjects;
                 this.selectedSubjects = [];
-                this.attendanceData = {};
-                this.saveData();
+                // Don't clear attendanceData, just save the new subjects list
+                this.saveData(); 
                 
-                // This is the fix: manually call renderAll() to update the UI immediately.
-                this.renderAll();
-
+                // Manually re-render the subject list for instant feedback
+                this.renderSubjectsList();
                 button.closest('.fixed').remove();
-            },
-            calculateNeededClasses(attended, total, requiredPerc) {
-                if (isNaN(attended) || isNaN(total) || isNaN(requiredPerc) || total < 0 || attended < 0) return { error: "Invalid input."};
-                if (attended > total) return { error: "Attended cannot be more than total." };
-                if (requiredPerc >= 100) return { classesNeeded: Infinity };
-                const currentPerc = total > 0 ? (attended / total) * 100 : 0;
-                if (currentPerc >= requiredPerc) return { classesNeeded: 0 };
-                const numerator = (requiredPerc / 100) * total - attended;
-                const denominator = 1 - (requiredPerc / 100);
-                return { classesNeeded: Math.ceil(numerator / denominator) };
-            },
-            calculateBunkableClasses(attended, total, requiredPerc) {
-                 if (isNaN(attended) || isNaN(total) || isNaN(requiredPerc) || total < 0 || attended < 0) return { error: "Invalid input."};
-                if (attended > total) return { error: "Attended cannot be more than total." };
-                const currentPerc = total > 0 ? (attended / total) * 100 : 0;
-                if (currentPerc < requiredPerc) return { bunkableClasses: 0 };
-                const requiredDecimal = requiredPerc / 100;
-                return { bunkableClasses: Math.floor((attended - requiredDecimal * total) / requiredDecimal) };
-            },
-            calculate() {
-                let resultsHTML = '';
-                let summaryValue = 0;
-                let validSubjectsCount = 0;
-                const isBunkMode = this.currentMode.includes('bunk');
-                const subjectsToCalc = this.currentMode.includes('all') ? this.subjects.map((_, i) => i) : this.selectedSubjects;
+            }
+        };
 
-                subjectsToCalc.forEach(index => {
-                    const data = this.getSubjectData(index);
-                    const { attended, total, requiredPerc } = data;
-                    if (attended === '' || total === '' || requiredPerc === '') return;
-                    
-                    const result = isBunkMode 
-                        ? this.calculateBunkableClasses(attended, total, requiredPerc)
-                        : this.calculateNeededClasses(attended, total, requiredPerc);
+        // Calculation logic needs to be part of the appState too
+        window.appState.calculateNeededClasses = function(attended, total, requiredPerc) {
+            if (isNaN(attended) || isNaN(total) || isNaN(requiredPerc) || total < 0 || attended < 0) return { error: "Invalid input."};
+            if (attended > total) return { error: "Attended cannot be more than total." };
+            if (requiredPerc >= 100) return { classesNeeded: Infinity };
+            const currentPerc = total > 0 ? (attended / total) * 100 : 0;
+            if (currentPerc >= requiredPerc) return { classesNeeded: 0 };
+            const numerator = (requiredPerc / 100) * total - attended;
+            const denominator = 1 - (requiredPerc / 100);
+            return { classesNeeded: Math.ceil(numerator / denominator) };
+        };
 
-                    if (result.error) {
-                        resultsHTML += `<div class="result-card bg-red-500/20 p-4 rounded-lg"><h4 class="font-bold">${this.subjects[index]}</h4><p>${result.error}</p></div>`;
-                        return;
-                    }
-                    
-                    validSubjectsCount++;
-                    const currentPerc = total > 0 ? (attended / total) * 100 : 0;
-                    
-                    if (isBunkMode) {
-                        const { bunkableClasses } = result;
-                        summaryValue += bunkableClasses;
-                        resultsHTML += this.generateBunkResultCard(index, { ...data, currentPerc, bunkableClasses });
-                    } else {
-                        const { classesNeeded } = result;
-                        if (classesNeeded === Infinity) {
-                            resultsHTML += `<div class="result-card bg-yellow-500/20 p-4 rounded-lg"><h4 class="font-bold">${this.subjects[index]}</h4><p>Target of ${requiredPerc}% is impossible.</p></div>`;
-                            return;
-                        }
-                        summaryValue += classesNeeded;
-                        resultsHTML += this.generateAttendResultCard(index, { ...data, currentPerc, classesNeeded });
-                    }
-                });
+        window.appState.calculateBunkableClasses = function(attended, total, requiredPerc) {
+             if (isNaN(attended) || isNaN(total) || isNaN(requiredPerc) || total < 0 || attended < 0) return { error: "Invalid input."};
+            if (attended > total) return { error: "Attended cannot be more than total." };
+            const currentPerc = total > 0 ? (attended / total) * 100 : 0;
+            if (currentPerc < requiredPerc) return { bunkableClasses: 0 };
+            const requiredDecimal = requiredPerc / 100;
+            return { bunkableClasses: Math.floor((attended - requiredDecimal * total) / requiredDecimal) };
+        };
+        
+        window.appState.calculate = function() {
+            let resultsHTML = '';
+            let summaryValue = 0;
+            let validSubjectsCount = 0;
+            const isBunkMode = this.currentMode.includes('bunk');
+            const subjectsToCalc = this.currentMode.includes('all') ? this.subjects.map((_, i) => i) : this.selectedSubjects;
+
+            subjectsToCalc.forEach(index => {
+                const data = this.getSubjectData(index);
+                const { attended, total, requiredPerc } = data;
+                if (attended === '' || total === '' || requiredPerc === '') return;
                 
-                if (validSubjectsCount > 1) {
-                    resultsHTML += isBunkMode ? this.generateBunkSummaryCard(summaryValue) : this.generateAttendSummaryCard(summaryValue);
+                const result = isBunkMode 
+                    ? this.calculateBunkableClasses(attended, total, requiredPerc)
+                    : this.calculateNeededClasses(attended, total, requiredPerc);
+
+                if (result.error) {
+                    resultsHTML += `<div class="result-card bg-red-500/20 p-4 rounded-lg"><h4 class="font-bold">${this.subjects[index]}</h4><p>${result.error}</p></div>`;
+                    return;
                 }
                 
-                this.showResults(resultsHTML);
-            },
-            generateAttendResultCard(index, data) {
-                const { attended, total, requiredPerc, currentPerc, classesNeeded } = data;
-                const futureAttended = attended + classesNeeded;
-                const futureTotal = total + classesNeeded;
-                return `
-                <div class="result-card bg-white/10 p-6 rounded-lg">
-                    <h3 class="text-xl font-bold mb-4">${this.subjects[index]}</h3>
-                    <div class="mb-4">
-                        <div class="flex justify-between mb-1 text-sm"><span>Current: ${currentPerc.toFixed(2)}%</span><span>Target: ${requiredPerc}%</span></div>
-                        <div class="progress-bar"><div class="progress-fill bg-purple-400" style="width: ${Math.min(currentPerc, 100)}%"></div></div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-center">
-                        <div class="bg-white/5 p-3 rounded-lg"><p class="text-xs opacity-70">Current Status</p><p class="font-bold">${attended} / ${total}</p></div>
-                        <div class="bg-white/5 p-3 rounded-lg"><p class="text-xs opacity-70">Status After Attending</p><p class="font-bold">${futureAttended} / ${futureTotal}</p></div>
-                    </div>
-                    <div class="mt-4 p-3 rounded-lg text-center ${classesNeeded > 0 ? 'bg-green-500/20 text-green-300' : 'bg-blue-500/20 text-blue-300'}">
-                        ${classesNeeded > 0 ? `You need to attend <span class="font-bold text-xl">${classesNeeded}</span> more class(es).` : `You are safe!`}
-                    </div>
-                </div>`;
-            },
-            generateBunkResultCard(index, data) {
-                const { attended, total, requiredPerc, currentPerc, bunkableClasses } = data;
-                const percAfterBunk = (total + bunkableClasses) > 0 ? (attended / (total + bunkableClasses)) * 100 : 0;
-                const percAfterOneMoreBunk = (total + bunkableClasses + 1) > 0 ? (attended / (total + bunkableClasses + 1)) * 100 : 0;
-                return `
-                <div class="result-card bg-white/10 p-6 rounded-lg">
-                    <h3 class="text-xl font-bold mb-4">${this.subjects[index]}</h3>
-                    <div class="mb-4">
-                        <div class="flex justify-between mb-1 text-sm"><span>Current: ${currentPerc.toFixed(2)}%</span><span>Minimum: ${requiredPerc}%</span></div>
-                        <div class="relative progress-bar"><div class="progress-fill bg-green-400" style="width: ${Math.min(currentPerc, 100)}%"></div><div class="absolute h-full border-l-2 border-red-500" style="left: ${requiredPerc}%"></div></div>
-                    </div>
-                    <div class="p-4 rounded-lg text-center ${bunkableClasses > 0 ? 'bg-blue-500/20 text-blue-300' : 'bg-yellow-500/20 text-yellow-300'}">
-                        You can safely bunk <span class="font-bold text-2xl">${bunkableClasses}</span> class(es).
-                    </div>
-                    <div class="mt-3 p-3 text-xs opacity-80 bg-white/5 rounded-lg">
-                        After bunking ${bunkableClasses}, attendance will be <strong>${percAfterBunk.toFixed(2)}%</strong>. Bunking one more will drop it to <strong>${percAfterOneMoreBunk.toFixed(2)}%</strong>.
-                    </div>
-                </div>`;
-            },
-            generateAttendSummaryCard(totalNeeded) {
-                return `<div class="result-card bg-indigo-500/30 p-6 rounded-lg mt-6 border border-indigo-400/50 text-center"><h3 class="text-xl font-bold mb-2">Total Summary</h3><p class="mb-3">Across all valid selected subjects, you need to attend a total of:</p><div class="text-5xl font-bold text-white">${totalNeeded}</div><p>classes.</p></div>`;
-            },
-            generateBunkSummaryCard(totalBunkable) {
-                return `<div class="result-card bg-blue-500/30 p-6 rounded-lg mt-6 border border-blue-400/50 text-center"><h3 class="text-xl font-bold mb-2">Total Summary</h3><p class="mb-3">Across all valid selected subjects, you can safely bunk a total of:</p><div class="text-5xl font-bold text-white">${totalBunkable}</div><p>classes.</p></div>`;
+                validSubjectsCount++;
+                const currentPerc = total > 0 ? (attended / total) * 100 : 0;
+                
+                if (isBunkMode) {
+                    const { bunkableClasses } = result;
+                    summaryValue += bunkableClasses;
+                    resultsHTML += this.generateBunkResultCard(index, { ...data, currentPerc, bunkableClasses });
+                } else {
+                    const { classesNeeded } = result;
+                    if (classesNeeded === Infinity) {
+                        resultsHTML += `<div class="result-card bg-yellow-500/20 p-4 rounded-lg"><h4 class="font-bold">${this.subjects[index]}</h4><p>Target of ${requiredPerc}% is impossible.</p></div>`;
+                        return;
+                    }
+                    summaryValue += classesNeeded;
+                    resultsHTML += this.generateAttendResultCard(index, { ...data, currentPerc, classesNeeded });
+                }
+            });
+            
+            if (validSubjectsCount > 1) {
+                resultsHTML += isBunkMode ? this.generateBunkSummaryCard(summaryValue) : this.generateAttendSummaryCard(summaryValue);
             }
+            
+            this.showResults(resultsHTML);
+        };
+        
+        window.appState.generateAttendResultCard = function(index, data) {
+            const { attended, total, requiredPerc, currentPerc, classesNeeded } = data;
+            const futureAttended = attended + classesNeeded;
+            const futureTotal = total + classesNeeded;
+            return `
+            <div class="result-card bg-white/10 p-6 rounded-lg">
+                <h3 class="text-xl font-bold mb-4">${this.subjects[index]}</h3>
+                <div class="mb-4">
+                    <div class="flex justify-between mb-1 text-sm"><span>Current: ${currentPerc.toFixed(2)}%</span><span>Target: ${requiredPerc}%</span></div>
+                    <div class="progress-bar" style="background-color: rgba(255,255,255,0.1); border-radius: 3px; height: 6px;"><div style="width: ${Math.min(currentPerc, 100)}%; background-color: #a5b4fc; height: 100%; border-radius: 3px;"></div></div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-center">
+                    <div class="bg-white/5 p-3 rounded-lg"><p class="text-xs opacity-70">Current Status</p><p class="font-bold">${attended} / ${total}</p></div>
+                    <div class="bg-white/5 p-3 rounded-lg"><p class="text-xs opacity-70">Status After Attending</p><p class="font-bold">${futureAttended} / ${futureTotal}</p></div>
+                </div>
+                <div class="mt-4 p-3 rounded-lg text-center ${classesNeeded > 0 ? 'bg-green-500/20 text-green-300' : 'bg-blue-500/20 text-blue-300'}">
+                    ${classesNeeded > 0 ? `You need to attend <span class="font-bold text-xl">${classesNeeded}</span> more class(es).` : `You are safe!`}
+                </div>
+            </div>`;
+        };
+
+        window.appState.generateBunkResultCard = function(index, data) {
+            const { attended, total, requiredPerc, currentPerc, bunkableClasses } = data;
+            const percAfterBunk = (total + bunkableClasses) > 0 ? (attended / (total + bunkableClasses)) * 100 : 0;
+            const percAfterOneMoreBunk = (total + bunkableClasses + 1) > 0 ? (attended / (total + bunkableClasses + 1)) * 100 : 0;
+            return `
+            <div class="result-card bg-white/10 p-6 rounded-lg">
+                <h3 class="text-xl font-bold mb-4">${this.subjects[index]}</h3>
+                <div class="mb-4">
+                    <div class="flex justify-between mb-1 text-sm"><span>Current: ${currentPerc.toFixed(2)}%</span><span>Minimum: ${requiredPerc}%</span></div>
+                    <div class="relative progress-bar" style="background-color: rgba(255,255,255,0.1); border-radius: 3px; height: 6px;"><div style="width: ${Math.min(currentPerc, 100)}%; background-color: #6ee7b7; height: 100%; border-radius: 3px;"></div><div class="absolute h-full border-l-2 border-red-500" style="left: ${requiredPerc}%"></div></div>
+                </div>
+                <div class="p-4 rounded-lg text-center ${bunkableClasses > 0 ? 'bg-blue-500/20 text-blue-300' : 'bg-yellow-500/20 text-yellow-300'}">
+                    You can safely bunk <span class="font-bold text-2xl">${bunkableClasses}</span> class(es).
+                </div>
+                <div class="mt-3 p-3 text-xs opacity-80 bg-white/5 rounded-lg">
+                    After bunking ${bunkableClasses}, attendance will be <strong>${percAfterBunk.toFixed(2)}%</strong>. Bunking one more will drop it to <strong>${percAfterOneMoreBunk.toFixed(2)}%</strong>.
+                </div>
+            </div>`;
+        };
+
+        window.appState.generateAttendSummaryCard = function(totalNeeded) {
+            return `<div class="result-card bg-indigo-500/30 p-6 rounded-lg mt-6 border border-indigo-400/50 text-center"><h3 class="text-xl font-bold mb-2">Total Summary</h3><p class="mb-3">Across all valid selected subjects, you need to attend a total of:</p><div class="text-5xl font-bold text-white">${totalNeeded}</div><p>classes.</p></div>`;
+        };
+        
+        window.appState.generateBunkSummaryCard = function(totalBunkable) {
+            return `<div class="result-card bg-blue-500/30 p-6 rounded-lg mt-6 border border-blue-400/50 text-center"><h3 class="text-xl font-bold mb-2">Total Summary</h3><p class="mb-3">Across all valid selected subjects, you can safely bunk a total of:</p><div class="text-5xl font-bold text-white">${totalBunkable}</div><p>classes.</p></div>`;
         };
     </script>
 </body>
