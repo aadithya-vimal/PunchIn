@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attendance Pro</title>
+    <title>PunchIn</title>
     <link rel="icon" type="image/x-icon" href="AttendanceApplication.ico">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -94,14 +94,11 @@
         .glow { animation: glow 2s ease-in-out infinite alternate; }
         @keyframes glow { from { box-shadow: 0 0 5px rgba(255, 255, 255, 0.1); } to { box-shadow: 0 0 20px rgba(255, 255, 255, 0.3); } }
         .text-gradient { background: linear-gradient(90deg, #a5b4fc, #818cf8); -webkit-background-clip: text; background-clip: text; color: transparent; }
-        
         .card-hover { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .card-hover:hover { transform: translateY(-8px) scale(1.02); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
-        
         .subject-selector { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .subject-selector:hover { background-color: rgba(255, 255, 255, 0.08); transform: translateX(4px); }
         .subject-selector.selected { background-color: rgba(255, 255, 255, 0.12); border-left: 4px solid #4f46e5; transform: translateX(4px); }
-        
         .mode-button.active {
             background-color: rgba(79, 70, 229, 0.5);
             transform: translateY(-4px) scale(1.01);
@@ -116,7 +113,7 @@
     <div class="container mx-auto px-4 py-8">
         <header class="text-center mb-12">
             <div class="inline-block mb-6"><div class="bg-white/5 backdrop-blur-lg rounded-full p-4 shadow-lg glow"><i class="fas fa-calendar-check text-3xl text-gradient"></i></div></div>
-            <h1 class="text-5xl md:text-6xl font-bold mb-4 text-gradient">Attendance Pro</h1>
+            <h1 class="text-5xl md:text-6xl font-bold mb-4 text-gradient">PunchIn</h1>
             <p class="text-xl opacity-90 max-w-2xl mx-auto">Precision tracking for academic excellence.</p>
         </header>
         <div class="mb-10">
@@ -177,7 +174,6 @@
                 const data = this.getSubjectData(index);
                 data[field] = value === '' ? '' : parseFloat(value);
                 this.saveData();
-                // Hide stale results when user types
                 document.getElementById('resultsContainer').classList.add('hidden');
             },
             logout() {
