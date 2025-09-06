@@ -21,16 +21,15 @@
         .form-field-visible { max-height: 100px; opacity: 1; transform: scaleY(1); transition: all 0.3s ease-in-out; }
     </style>
 </head>
-<body class="gradient-bg min-h-screen flex items-center justify-center p-4 text-white">
-
-    <div class="w-full max-w-sm">
+<body class="gradient-bg min-h-screen flex flex-col items-center justify-center p-4 text-white">
+    <main class="w-full max-w-sm flex-grow flex flex-col items-center justify-center">
         <header class="text-center mb-8">
             <div class="inline-block mb-6"><div class="bg-white/5 backdrop-blur-lg rounded-full p-4 shadow-lg glow"><i class="fas fa-calendar-check text-3xl text-gradient"></i></div></div>
             <h1 class="text-3xl md:text-4xl font-bold mb-2 text-gradient">Punch.In</h1>
             <p class="text-white/80">Sign in to continue</p>
         </header>
         
-        <div class="login-card rounded-xl p-8 shadow-xl">
+        <div class="login-card rounded-xl p-8 shadow-xl w-full">
             <h2 id="form-title" class="text-2xl font-bold text-center mb-6 text-white/90">Welcome</h2>
             
             <div id="google-signin-button-container"></div>
@@ -54,12 +53,10 @@
                     <label for="confirm-password" class="block text-white/80 text-sm mb-2">Confirm Password</label>
                     <input type="password" id="confirm-password" class="w-full bg-white/10 border border-white/30 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/50">
                 </div>
-                <button id="submit-button" type="submit" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold py-3 px-4 rounded-lg hover:shadow-lg transition-all">
-                    Sign In
-                </button>
+                <button id="submit-button" type="submit" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold py-3 px-4 rounded-lg hover:shadow-lg transition-all">Sign In</button>
             </form>
             
-            <div id="errorMessage" class="text-red-400 text-sm text-center mt-4"></div>
+            <div id="errorMessage" class="text-red-400 text-sm text-center mt-4 min-h-[1.25rem]"></div>
             
             <div class="mt-6 text-center">
                 <p id="toggle-text" class="text-white/60 text-sm">
@@ -67,12 +64,17 @@
                 </p>
             </div>
         </div>
-    </div>
+    </main>
+
+    <footer class="w-full text-center p-8 text-white/50 text-sm">
+        <p>Copyright &copy; 2025 AtomiComp</p>
+        <p class="mt-2">Contact: <a href="mailto:team.atomicomp@gmail.com" class="hover:text-white/80 transition-colors">team.atomicomp@gmail.com</a></p>
+    </footer>
 
     <!-- Firebase SDK Scripts -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-      import { getAuth, GoogleAuthProvider, signInWithCredential, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+      import { getAuth, GoogleAuthProvider, signInWithCredential, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 
       const firebaseConfig = {
         apiKey: "AIzaSyDl26G3Iki090KsKYgS3uG4jDdTYU9bLjw",
@@ -87,30 +89,44 @@
       const app = initializeApp(firebaseConfig);
       const auth = getAuth(app);
 
+      // Redirect if user is already logged in
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          window.location.href = './index.html';
+        }
+      });
+
+      // --- Google Sign-In Handler ---
       async function handleCredentialResponse(response) {
         try {
           const idToken = response.credential;
           const credential = GoogleAuthProvider.credential(idToken);
           await signInWithCredential(auth, credential);
-          window.location.href = './index.html';
+          // onAuthStateChanged will handle the redirect
         } catch (error) {
           console.error("Firebase Google sign-in error:", error);
           document.getElementById('errorMessage').textContent = 'Failed to sign in with Google.';
         }
       };
 
+      // Programmatic initialization of Google Sign-In
       window.onload = function () {
-        google.accounts.id.initialize({
-          client_id: "1061249192401-e3in38qaqiqi4avu5pqkjkp86pjnnh9r.apps.googleusercontent.com",
-          callback: handleCredentialResponse
-        });
-        google.accounts.id.renderButton(
-          document.getElementById("google-signin-button-container"),
-          { theme: "outline", size: "large", text: "sign_in_with", shape: "rectangular", logo_alignment: "left" }
-        );
+        try {
+            google.accounts.id.initialize({
+              client_id: "1061249192401-e3in38qaqiqi4avu5pqkjkp86pjnnh9r.apps.googleusercontent.com",
+              callback: handleCredentialResponse
+            });
+            google.accounts.id.renderButton(
+              document.getElementById("google-signin-button-container"),
+              { theme: "outline", size: "large", text: "sign_in_with", shape: "rectangular", logo_alignment: "left", width: "320" }
+            );
+        } catch (e) {
+            console.error("Google Sign-In script failed to load. Check for ad blockers or network issues.");
+            document.getElementById('google-signin-button-container').innerHTML = `<p class="text-center text-sm text-yellow-400">Could not load Google Sign-In. Please check your ad blocker.</p>`;
+        }
       };
 
-
+      // --- Email/Password Form Logic ---
       const emailForm = document.getElementById('emailForm');
       const submitButton = document.getElementById('submit-button');
       const toggleText = document.getElementById('toggle-text');
@@ -120,29 +136,35 @@
       
       let isSignUpMode = false;
 
+      function setupToggleLink() {
+          const link = document.getElementById('auth-toggle-link');
+          if (link) {
+              link.addEventListener('click', toggleAuthMode, { once: true });
+          }
+      }
+
       function toggleAuthMode(e) {
         if (e) e.preventDefault();
         isSignUpMode = !isSignUpMode;
         errorMessageDiv.textContent = '';
+        emailForm.reset();
         
         if (isSignUpMode) {
           submitButton.textContent = 'Sign Up';
           toggleText.innerHTML = 'Already have an account? <a href="#" id="auth-toggle-link" class="text-indigo-400 hover:text-indigo-300">Sign in</a>';
-          confirmPasswordField.classList.remove('form-field-hidden');
-          confirmPasswordField.classList.add('form-field-visible');
+          confirmPasswordField.classList.replace('form-field-hidden', 'form-field-visible');
           confirmPasswordInput.required = true;
         } else {
           submitButton.textContent = 'Sign In';
           toggleText.innerHTML = `Don't have an account? <a href="#" id="auth-toggle-link" class="text-indigo-400 hover:text-indigo-300">Sign up</a>`;
-          confirmPasswordField.classList.remove('form-field-visible');
-          confirmPasswordField.classList.add('form-field-hidden');
+          confirmPasswordField.classList.replace('form-field-visible', 'form-field-hidden');
           confirmPasswordInput.required = false;
         }
         
-        document.getElementById('auth-toggle-link').addEventListener('click', toggleAuthMode);
+        setupToggleLink();
       }
       
-      document.getElementById('auth-toggle-link').addEventListener('click', toggleAuthMode);
+      setupToggleLink();
 
       emailForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -161,7 +183,7 @@
           } else {
             await signInWithEmailAndPassword(auth, email, password);
           }
-          window.location.href = './index.html';
+          // onAuthStateChanged will handle the redirect
         } catch (error) {
           console.error(`Firebase error (${error.code}):`, error.message);
           switch (error.code) {
@@ -172,7 +194,7 @@
               errorMessageDiv.textContent = 'Password should be at least 6 characters.';
               break;
             case 'auth/email-already-in-use':
-              errorMessageDiv.textContent = 'This email is already in use.';
+              errorMessageDiv.textContent = 'This email is already registered.';
               break;
             case 'auth/invalid-credential':
               errorMessageDiv.textContent = 'Invalid email or password.';
@@ -186,4 +208,3 @@
     </script>
 </body>
 </html>
-
