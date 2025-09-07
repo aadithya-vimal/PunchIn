@@ -7,7 +7,6 @@
     <link rel="icon" type="image/x-icon" href="AttendanceApplication.ico">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Added Marked.js library to parse AI's Markdown response -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <!-- Firebase SDK Scripts -->
@@ -26,7 +25,6 @@
         measurementId: "G-WPDEYXTNFY"
       };
       
-      // Make config globally accessible for the AI function
       window.firebaseConfig = firebaseConfig;
 
       const app = initializeApp(firebaseConfig);
@@ -45,28 +43,30 @@
         const userId = user.uid;
         const userDocRef = doc(db, "users", userId);
         let isFirstLoad = true;
+        window.appState.currentUser = user; 
 
         onSnapshot(userDocRef, (docSnap) => {
             const oldSubjectsJSON = JSON.stringify(window.appState.subjects || []);
-            let newSubjects = [];
-            let newAttendanceData = {};
-            let newTimetable = {};
+            let newSubjects = [], newAttendanceData = {}, newTimetable = {}, newProfile = {};
 
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 newSubjects = data.subjects || [];
                 newAttendanceData = data.attendanceData || {};
                 newTimetable = data.timetable || {};
+                newProfile = data.profile || {};
             } else {
                  const defaultData = {
                     subjects: [],
                     attendanceData: {},
-                    timetable: {}
+                    timetable: {},
+                    profile: { displayName: user.displayName || 'New User' }
                 };
                 setDoc(userDocRef, defaultData);
                 newSubjects = defaultData.subjects;
                 newAttendanceData = defaultData.attendanceData;
                 newTimetable = defaultData.timetable;
+                newProfile = defaultData.profile;
             }
             
             const newSubjectsJSON = JSON.stringify(newSubjects);
@@ -74,6 +74,7 @@
             window.appState.subjects = newSubjects;
             window.appState.attendanceData = newAttendanceData;
             window.appState.timetable = newTimetable;
+            window.appState.profile = newProfile;
 
             if (isFirstLoad) {
                 window.appState.renderAll();
@@ -112,9 +113,14 @@
     </style>
 </head>
 <body class="gradient-bg min-h-screen text-white flex flex-col">
-    <button onclick="window.appState.logout()" title="Logout" class="fixed top-6 right-6 z-50 bg-red-500 hover:bg-red-600 text-white p-3 rounded-full transition-all transform hover:scale-110 shadow-lg">
-        <i class="fas fa-sign-out-alt"></i>
-    </button>
+    <div class="fixed top-6 right-6 z-50 flex items-center gap-3">
+        <button onclick="window.appState.openProfileWindow()" title="Profile & Settings" class="bg-gray-500 hover:bg-gray-600 text-white p-3 rounded-full transition-all transform hover:scale-110 shadow-lg">
+            <i class="fas fa-user-cog"></i>
+        </button>
+        <button onclick="window.appState.logout()" title="Logout" class="bg-red-500 hover:bg-red-600 text-white p-3 rounded-full transition-all transform hover:scale-110 shadow-lg">
+            <i class="fas fa-sign-out-alt"></i>
+        </button>
+    </div>
     <main class="flex-grow">
         <div class="container mx-auto px-4 py-8">
             <header class="text-center mb-12">
@@ -128,7 +134,7 @@
             </div>
             
             <div id="ai-assistant" class="bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg mb-8">
-                <div class="flex flex-col md:flex-row justify-between items-center mb-4">
+                 <div class="flex flex-col md:flex-row justify-between items-center mb-4">
                     <h2 class="text-3xl font-bold text-gradient mb-4 md:mb-0">Strategic AI Bunk Planner</h2>
                     <button onclick="window.appState.getAIRecommendation()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition-all transform hover:scale-105 shadow-lg flex items-center">
                         <i class="fas fa-brain mr-3"></i> Find Best Bunk Days
@@ -171,8 +177,8 @@
         </div>
     </main>
     <footer class="w-full text-center p-8 text-white/50 text-sm">
-        <p>Copyright &copy; 2025 Aadithya Vimal</p>
-        <p class="mt-2">Contact: <a href="mailto:aadithyavimal.work@gmail.com" class="hover:text-white/80 transition-colors">aadithyavimal.work@gmail.com</a></p>
+        <p>Copyright &copy; 2025 AtomiComp</p>
+        <p class="mt-2">Contact: <a href="mailto:team.atomicomp@gmail.com" class="hover:text-white/80 transition-colors">team.atomicomp@gmail.com</a></p>
     </footer>
     <script type="module">
         import { setDoc } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
@@ -182,6 +188,8 @@
             subjects: [],
             attendanceData: {},
             timetable: {},
+            profile: {},
+            currentUser: null,
             currentMode: 'attend-single',
             selectedSubjects: [],
             userDocRef: null,
@@ -191,7 +199,8 @@
                     await setDoc(this.userDocRef, { 
                         subjects: this.subjects, 
                         attendanceData: this.attendanceData,
-                        timetable: this.timetable 
+                        timetable: this.timetable,
+                        profile: this.profile
                     });
                 }
             },
@@ -691,9 +700,85 @@
                     console.error("Error fetching AI recommendation:", error);
                     recommendationDiv.textContent = "An error occurred while trying to get a recommendation. Please check the console for details.";
                 }
+            },
+            openProfileWindow() {
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4';
+                
+                const stats = this.calculateProfileStats();
+
+                modal.innerHTML = `
+                    <div class="bg-gray-900 rounded-xl p-8 w-full max-w-lg flex flex-col">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold">Profile & Settings</h2>
+                            <button onclick="this.closest('.fixed').remove()" class="text-white/60 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+                        </div>
+                        
+                        <div class="mb-6">
+                            <h3 class="font-semibold text-lg mb-3 border-b border-white/10 pb-2">User Info</h3>
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-white/70">Display Name</label>
+                                <input type="text" id="displayNameInput" value="${this.profile.displayName || ''}" class="mt-1 block w-full bg-white/10 border border-white/20 rounded-md px-3 py-2 text-white">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-white/70">Email</label>
+                                <p class="mt-1 text-white/90">${this.currentUser.email}</p>
+                            </div>
+                        </div>
+
+                        <div class="mb-6">
+                            <h3 class="font-semibold text-lg mb-3 border-b border-white/10 pb-2">Your Stats</h3>
+                            <div class="grid grid-cols-2 gap-4 text-center">
+                                <div class="bg-white/5 p-4 rounded-lg">
+                                    <p class="text-2xl font-bold text-gradient">${stats.totalSubjects}</p>
+                                    <p class="text-sm text-white/70">Total Subjects</p>
+                                </div>
+                                <div class="bg-white/5 p-4 rounded-lg">
+                                    <p class="text-2xl font-bold text-gradient">${stats.overallAttendance}%</p>
+                                    <p class="text-sm text-white/70">Overall Attendance</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="font-semibold text-lg mb-3 border-b border-white/10 pb-2">Theme (Coming Soon)</h3>
+                            <p class="text-sm text-white/60">Theme customization will be available in a future update!</p>
+                        </div>
+
+                        <div class="flex justify-end gap-3 mt-8">
+                            <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-lg border border-white/20 hover:bg-white/10">Cancel</button>
+                            <button onclick="window.appState.saveProfileChanges(this)" class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg">Save Changes</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            },
+            calculateProfileStats() {
+                const totalSubjects = this.subjects.length;
+                let totalAttended = 0;
+                let totalClasses = 0;
+                
+                this.subjects.forEach((_, index) => {
+                    const data = this.getSubjectData(index);
+                    if(data.attended && data.total) {
+                        totalAttended += data.attended;
+                        totalClasses += data.total;
+                    }
+                });
+
+                const overallAttendance = totalClasses > 0 ? ((totalAttended / totalClasses) * 100).toFixed(0) : 'N/A';
+                
+                return { totalSubjects, overallAttendance };
+            },
+            saveProfileChanges(button) {
+                const newDisplayName = document.getElementById('displayNameInput').value.trim();
+                if (newDisplayName) {
+                    this.profile.displayName = newDisplayName;
+                    this.saveData();
+                }
+                button.closest('.fixed').remove();
             }
         };
     </script>
 </body>
 </html>
-
