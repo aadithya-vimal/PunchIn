@@ -750,7 +750,7 @@
 
                 const timetableString = Object.entries(this.timetable).map(([day, subjects]) => {
                     if (Object.keys(subjects).length === 0) return null;
-                    const subjectDetails = Object.entries(subjects).map(([index, hours]) => `${this.subjects[parseInt(index)]} (${hours} period/s)`).join(', ');
+                    const subjectDetails = Object.entries(subjects).map(([index, hours]) => `${this.subjects[parseInt(index)]} (${hours} period(s))`).join(', ');
                     return `- ${day.charAt(0).toUpperCase() + day.slice(1)}: ${subjectDetails}`;
                 }).filter(Boolean).join('\n');
 
@@ -1084,37 +1084,102 @@
             renderTimetableGlance() {
                 const container = document.getElementById('timetable-glance-content');
                 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-                let hasClasses = Object.values(this.timetable).some(day => Object.keys(day).length > 0);
-                
+                let hasClasses = Object.values(this.timetable).some(daySchedule => Object.keys(daySchedule).length > 0);
+
                 if (!hasClasses && this.subjects.length > 0) {
                      container.innerHTML = `<div class="text-center text-white/70 bg-black/20 p-6 rounded-xl"><p>Your weekly timetable is empty.</p><button onclick="window.appState.openTimetableWindow()" class="mt-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg">Set Timetable Now</button></div>`;
                 } else if (this.subjects.length > 0) {
-                    let content = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">`;
+                    let content = `<div class="overflow-x-auto"><table class="w-full text-left border-collapse">`;
+                    content += `<thead><tr class="bg-white/10">`;
+                    content += `<th class="p-3">Period</th>`;
                     days.forEach(day => {
-                        const dayKey = day.toLowerCase();
-                        const subjectsToday = this.timetable[dayKey];
-                        
-                        content += `<div class="bg-black/20 p-4 rounded-lg">`;
-                        content += `<h3 class="font-bold text-lg mb-2 text-center border-b border-white/10 pb-2">${day}</h3>`;
-                        
-                        if (subjectsToday && Object.keys(subjectsToday).length > 0) {
-                            content += `<ul class="space-y-2 text-sm mt-3">`;
-                            Object.entries(subjectsToday).forEach(([index, hours]) => {
-                                if(this.subjects[parseInt(index)]) {
-                                    content += `<li class="flex justify-between"><span>${this.subjects[parseInt(index)]}</span><span class="font-semibold">${hours} period(s)</span></li>`;
-                                }
-                            });
-                            content += `</ul>`;
-                        } else {
-                            content += `<p class="text-center text-white/50 italic mt-4">No classes scheduled.</p>`;
-                        }
-                        content += `</div>`;
+                        content += `<th class="p-3">${day}</th>`;
                     });
-                    content += `</div>`;
+                    content += `</tr></thead><tbody>`;
+
+                    for (let i = 1; i <= 8; i++) { // Assuming max 8 periods
+                        content += `<tr class="border-b border-white/10">`;
+                        content += `<td class="p-3 font-semibold">Period ${i}</td>`;
+                        days.forEach(day => {
+                            const dayKey = day.toLowerCase();
+                            const subjectIndex = this.timetable[dayKey] ? this.timetable[dayKey][i] : null;
+                            const subjectName = (subjectIndex != null && this.subjects[subjectIndex]) ? this.subjects[subjectIndex] : '-';
+                            content += `<td class="p-3 text-sm">${subjectName}</td>`;
+                        });
+                        content += `</tr>`;
+                    }
+
+                    content += `</tbody></table></div>`;
                     container.innerHTML = content;
                 } else {
                     container.innerHTML = ``; // Hide if no subjects exist
                 }
+            },
+            openTimetableWindow() {
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4';
+                
+                let timetableHTML = '';
+
+                if (this.subjects.length === 0) {
+                    timetableHTML = `<p class="text-center text-white/60 col-span-full">Please add subjects first before setting a timetable.</p>`;
+                } else {
+                    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                    timetableHTML += `<div class="grid grid-cols-7 gap-4 text-center items-center font-bold sticky top-0 bg-gray-900 py-2"><div>Period</div>${days.map(d => `<div>${d}</div>`).join('')}</div>`;
+
+                    for (let i = 1; i <= 8; i++) { // 8 periods
+                        timetableHTML += `<div class="grid grid-cols-7 gap-4 items-center border-t border-white/10 py-2">`;
+                        timetableHTML += `<div class="font-semibold">Period ${i}</div>`;
+                        days.forEach(day => {
+                            const dayKey = day.toLowerCase();
+                            let optionsHTML = '<option value="-1">--</option>'; // -1 for free period
+                            this.subjects.forEach((subject, index) => {
+                                const isSelected = (this.timetable[dayKey] && this.timetable[dayKey][i] === index);
+                                optionsHTML += `<option value="${index}" ${isSelected ? 'selected' : ''}>${subject}</option>`;
+                            });
+                            timetableHTML += `<div><select data-day="${dayKey}" data-period="${i}" class="timetable-select w-full bg-white/10 text-center rounded-md p-1 select-dark text-xs">${optionsHTML}</select></div>`;
+                        });
+                        timetableHTML += `</div>`;
+                    }
+                }
+
+                modal.innerHTML = `
+                    <div class="bg-gray-900 rounded-xl p-6 w-full max-w-6xl max-h-[90vh] flex flex-col">
+                        <div class="flex justify-between items-center mb-4 flex-shrink-0">
+                            <h2 class="text-2xl font-bold">Set Weekly Timetable</h2>
+                            <button onclick="this.closest('.fixed').remove()" class="text-white/60 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+                        </div>
+                        <p class="text-white/60 text-sm mb-4 flex-shrink-0">Assign a subject to each period of the day. Select '--' for a free period.</p>
+                        <div class="flex-grow overflow-y-auto pr-2">
+                           ${timetableHTML}
+                        </div>
+                        <div class="flex justify-end gap-3 mt-6 flex-shrink-0">
+                            <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-lg border border-white/20 hover:bg-white/10">Cancel</button>
+                            <button onclick="window.appState.saveTimetable(this)" class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg">Save Timetable</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            },
+            saveTimetable(button) {
+                const newTimetable = {};
+                const selects = document.querySelectorAll('.timetable-select');
+                selects.forEach(select => {
+                    const day = select.dataset.day;
+                    const period = parseInt(select.dataset.period);
+                    const subjectIndex = parseInt(select.value);
+
+                    if (!newTimetable[day]) {
+                        newTimetable[day] = {};
+                    }
+                    if (subjectIndex !== -1) {
+                        newTimetable[day][period] = subjectIndex;
+                    }
+                });
+                this.timetable = newTimetable;
+                this.saveData();
+                this.renderTimetableGlance();
+                button.closest('.fixed').remove();
             },
         };
     </script>
