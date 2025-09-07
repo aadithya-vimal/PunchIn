@@ -122,6 +122,10 @@
             -moz-appearance: none;
             appearance: none;
         }
+        .select-dark option {
+            background-color: #111827; /* Tailwind gray-900 */
+            color: white;
+        }
     </style>
 </head>
 <body class="gradient-bg min-h-screen text-white flex flex-col">
@@ -181,7 +185,7 @@
                     <h2 class="text-3xl font-bold text-gradient mb-4 md:mb-0">📚 AI Topic Suggester</h2>
                 </div>
                 <div class="flex flex-col md:flex-row gap-4 mb-4">
-                     <select id="topic-suggester-select" class="flex-grow bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white select-dark">
+                     <select id="topic-suggester-select" class="flex-grow bg-gray-900 border border-white/20 rounded-lg px-4 py-3 text-white select-dark">
                      </select>
                     <button onclick="window.appState.getTopicSuggestions()" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-6 rounded-lg transition-all transform hover:scale-105 shadow-lg flex items-center justify-center">
                         <i class="fas fa-lightbulb mr-3"></i> Suggest Topics
@@ -973,3 +977,4 @@
     </script>
 </body>
 </html>
+
