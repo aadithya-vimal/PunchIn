@@ -270,7 +270,7 @@
                 this.saveData();
                 document.getElementById('resultsContainer').classList.add('hidden');
                 document.getElementById('ai-insights-container').classList.add('hidden');
-                this.lastCalculationResults = null; // Bug Fix: Clear stale AI results
+                this.lastCalculationResults = null;
             },
             logout() {
                 if (this.auth) {
@@ -481,10 +481,9 @@
             addNewSubject() {
                 const input = document.getElementById('newSubjectInput');
                 const name = input.value.trim();
+                const editList = document.getElementById('editSubjectsList');
                 if (name) {
-                    const editList = document.getElementById('editSubjectsList');
                     if (editList.querySelector('p')) { editList.innerHTML = ''; }
-                    
                     const div = document.createElement('div');
                     div.className = 'flex items-center gap-3 p-3 bg-white/5 rounded-lg';
                     div.innerHTML = `
@@ -494,6 +493,8 @@
                     editList.appendChild(div);
                     input.value = '';
                     input.focus();
+                    // Auto-scroll to the bottom
+                    editList.scrollTop = editList.scrollHeight;
                 }
             },
             saveSubjectChanges(button) {
@@ -504,10 +505,38 @@
                     if (name) newSubjects.push(name);
                 });
                 
+                // Create a map of old data to preserve it across changes
+                const oldDataMap = new Map();
+                this.subjects.forEach((oldSubject, oldIndex) => {
+                    oldDataMap.set(oldSubject, {
+                        attendance: this.attendanceData[oldIndex],
+                        timetable: Object.keys(this.timetable).reduce((acc, day) => {
+                            if (this.timetable[day][oldIndex]) {
+                                acc[day] = this.timetable[day][oldIndex];
+                            }
+                            return acc;
+                        }, {})
+                    });
+                });
+                
+                const newAttendanceData = {};
+                const newTimetable = {};
+
+                newSubjects.forEach((newSubject, newIndex) => {
+                    if (oldDataMap.has(newSubject)) {
+                        const data = oldDataMap.get(newSubject);
+                        newAttendanceData[newIndex] = data.attendance;
+                        Object.keys(data.timetable).forEach(day => {
+                            if (!newTimetable[day]) newTimetable[day] = {};
+                            newTimetable[day][newIndex] = data.timetable[day];
+                        });
+                    }
+                });
+
                 this.subjects = newSubjects;
                 this.selectedSubjects = [];
-                this.attendanceData = {};
-                this.timetable = {};
+                this.attendanceData = newAttendanceData;
+                this.timetable = newTimetable;
                 
                 this.renderAll(); 
                 this.saveData();
