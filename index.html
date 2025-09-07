@@ -141,7 +141,7 @@
         <div class="container mx-auto px-4 py-8">
             <header class="text-center mb-12">
                 <div class="inline-block mb-6">
-                    <div class="bg-white/5 backdrop-blur-lg rounded-full p-3 shadow-lg glow">
+                    <div class="bg-white/5 backdrop-blur-lg rounded-2xl p-3 shadow-lg glow">
                         <img src="AttendanceApplication.png" alt="Punch.In Logo" class="w-16 h-16">
                     </div>
                 </div>
@@ -514,7 +514,7 @@
                     oldDataMap.set(oldSubject, {
                         attendance: this.attendanceData[oldIndex],
                         timetable: Object.keys(this.timetable).reduce((acc, day) => {
-                            if (this.timetable[day][oldIndex]) {
+                            if (this.timetable[day] && this.timetable[day][oldIndex]) {
                                 acc[day] = this.timetable[day][oldIndex];
                             }
                             return acc;
