@@ -111,7 +111,7 @@
         .ai-recommendation-content p { margin-bottom: 0.75rem; }
         .ai-recommendation-content ul { margin-left: 1.5rem; list-style-type: disc; margin-bottom: 1rem; }
         .ai-recommendation-content li { margin-bottom: 0.25rem; }
-        /* NEW: Style for dark mode select dropdown */
+        /* FIXED: Style for dark mode select dropdown */
         .select-dark {
             background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
             background-position: right 0.5rem center;
@@ -176,7 +176,6 @@
                 </div>
             </div>
             
-            <!-- MODIFIED: Changed from Subject Explainer to Topic Suggester -->
             <div id="ai-topic-suggester" class="bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg mb-8">
                 <div class="flex flex-col md:flex-row justify-between items-center mb-4">
                     <h2 class="text-3xl font-bold text-gradient mb-4 md:mb-0">📚 AI Topic Suggester</h2>
@@ -921,7 +920,6 @@
 
                 const systemPrompt = "You are an expert academic advisor. Based on the student's calculation results and their timetable, provide a brief, actionable mini-plan or advice. Be encouraging and focus on a realistic next step.";
                 
-                // MODIFIED: Create a context-aware prompt
                 let userQuery;
                 if (this.lastCalculationResults.type === 'attend') {
                     userQuery = `
