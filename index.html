@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Punch.In Scholar Companion</title>
+    <meta name="description" content="Meet Punch.In, your AI Scholar Companion. Go beyond simple attendance tracking with a strategic bunk planner, personalized study schedules, and AI-powered topic suggestions. The ultimate tool for academic excellence.">
+    
     <link rel="icon" type="image/x-icon" href="AttendanceApplication.ico">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -242,7 +244,8 @@
     <footer class="w-full text-center p-8 text-white/50 text-sm">
         <div class="mb-2">
             <a href="./privacypolicy.html" class="hover:text-white/80 transition-colors mx-2">Privacy Policy</a> |
-            <a href="./terms.html" class="hover:text-white/80 transition-colors mx-2">Terms & Conditions</a>
+            <a href="./terms.html" class="hover:text-white/80 transition-colors mx-2">Terms & Conditions</a> |
+            <a href="https://docs.google.com/forms/d/e/1FAIpQLSemdMUAIDx4vJEypAOnCXI4Y-1Pr0zCGfxl6JI5LHb-79DVPQ/viewform?usp=sf_link" target="_blank" class="hover:text-white/80 transition-colors mx-2">Submit Feedback</a>
         </div>
         <p>Copyright &copy; 2025 Aadithya Vimal</p>
         <p class="mt-2">Contact: <a href="mailto:aadithyavimal.work@gmail.com" class="hover:text-white/80 transition-colors">aadithyavimal.work@gmail.com</a></p>
@@ -1119,6 +1122,72 @@
                 } else {
                     container.innerHTML = ``; // Hide if no subjects exist
                 }
+            },
+            openTimetableWindow() {
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4';
+                
+                let timetableHTML = '';
+
+                if (this.subjects.length === 0) {
+                    timetableHTML = `<p class="text-center text-white/60 col-span-full">Please add subjects first before setting a timetable.</p>`;
+                } else {
+                    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                    timetableHTML += `<div class="grid grid-cols-7 gap-4 text-center items-center font-bold sticky top-0 bg-gray-900 py-2"><div>Period</div>${days.map(d => `<div>${d}</div>`).join('')}</div>`;
+
+                    for (let i = 1; i <= 8; i++) { // 8 periods
+                        timetableHTML += `<div class="grid grid-cols-7 gap-4 items-center border-t border-white/10 py-2">`;
+                        timetableHTML += `<div class="font-semibold">Period ${i}</div>`;
+                        days.forEach(day => {
+                            const dayKey = day.toLowerCase();
+                            let optionsHTML = '<option value="-1">--</option>'; // -1 for free period
+                            this.subjects.forEach((subject, index) => {
+                                const isSelected = (this.timetable[dayKey] && this.timetable[dayKey][i] === index);
+                                optionsHTML += `<option value="${index}" ${isSelected ? 'selected' : ''}>${subject}</option>`;
+                            });
+                            timetableHTML += `<div><select data-day="${dayKey}" data-period="${i}" class="timetable-select w-full bg-white/10 text-center rounded-md p-1 select-dark text-xs">${optionsHTML}</select></div>`;
+                        });
+                        timetableHTML += `</div>`;
+                    }
+                }
+
+                modal.innerHTML = `
+                    <div class="bg-gray-900 rounded-xl p-6 w-full max-w-6xl max-h-[90vh] flex flex-col">
+                        <div class="flex justify-between items-center mb-4 flex-shrink-0">
+                            <h2 class="text-2xl font-bold">Set Weekly Timetable</h2>
+                            <button onclick="this.closest('.fixed').remove()" class="text-white/60 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+                        </div>
+                        <p class="text-white/60 text-sm mb-4 flex-shrink-0">Assign a subject to each period of the day. Select '--' for a free period.</p>
+                        <div class="flex-grow overflow-y-auto pr-2">
+                           ${timetableHTML}
+                        </div>
+                        <div class="flex justify-end gap-3 mt-6 flex-shrink-0">
+                            <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-lg border border-white/20 hover:bg-white/10">Cancel</button>
+                            <button onclick="window.appState.saveTimetable(this)" class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg">Save Timetable</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            },
+            saveTimetable(button) {
+                const newTimetable = {};
+                const selects = document.querySelectorAll('.timetable-select');
+                selects.forEach(select => {
+                    const day = select.dataset.day;
+                    const period = parseInt(select.dataset.period);
+                    const subjectIndex = parseInt(select.value);
+
+                    if (!newTimetable[day]) {
+                        newTimetable[day] = {};
+                    }
+                    if (subjectIndex !== -1) {
+                        newTimetable[day][period] = subjectIndex;
+                    }
+                });
+                this.timetable = newTimetable;
+                this.saveData();
+                this.renderTimetableGlance();
+                button.closest('.fixed').remove();
             },
         };
     </script>
