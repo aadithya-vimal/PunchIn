@@ -111,6 +111,17 @@
         .ai-recommendation-content p { margin-bottom: 0.75rem; }
         .ai-recommendation-content ul { margin-left: 1.5rem; list-style-type: disc; margin-bottom: 1rem; }
         .ai-recommendation-content li { margin-bottom: 0.25rem; }
+        /* NEW: Style for dark mode select dropdown */
+        .select-dark {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
+            padding-right: 2.5rem;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+        }
     </style>
 </head>
 <body class="gradient-bg min-h-screen text-white flex flex-col">
@@ -130,7 +141,6 @@
                 <p class="text-xl opacity-90 max-w-2xl mx-auto">Precision tracking for academic excellence.</p>
             </header>
 
-            <!-- NEW: Welcome Message Section -->
             <div id="welcome-message" class="text-center mb-10 text-2xl font-light text-white/90"></div>
 
             <div class="mb-10">
@@ -166,19 +176,20 @@
                 </div>
             </div>
             
-            <div id="ai-subject-explainer" class="bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg mb-8">
+            <!-- MODIFIED: Changed from Subject Explainer to Topic Suggester -->
+            <div id="ai-topic-suggester" class="bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg mb-8">
                 <div class="flex flex-col md:flex-row justify-between items-center mb-4">
-                    <h2 class="text-3xl font-bold text-gradient mb-4 md:mb-0">💡 AI Subject Explainer</h2>
+                    <h2 class="text-3xl font-bold text-gradient mb-4 md:mb-0">📚 AI Topic Suggester</h2>
                 </div>
                 <div class="flex flex-col md:flex-row gap-4 mb-4">
-                     <select id="subject-explainer-select" class="flex-grow bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white">
+                     <select id="topic-suggester-select" class="flex-grow bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white select-dark">
                      </select>
-                    <button onclick="window.appState.getSubjectSummary()" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-6 rounded-lg transition-all transform hover:scale-105 shadow-lg flex items-center justify-center">
-                        <i class="fas fa-lightbulb mr-3"></i> Explain Subject
+                    <button onclick="window.appState.getTopicSuggestions()" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-6 rounded-lg transition-all transform hover:scale-105 shadow-lg flex items-center justify-center">
+                        <i class="fas fa-lightbulb mr-3"></i> Suggest Topics
                     </button>
                 </div>
-                <div id="subject-summary-content" class="bg-black/20 p-6 rounded-lg min-h-[100px] text-white/80 leading-relaxed">
-                    Select a subject from the dropdown to get a quick AI-powered explanation.
+                <div id="topic-suggestion-content" class="bg-black/20 p-6 rounded-lg min-h-[100px] text-white/80 leading-relaxed">
+                    Select a subject from the dropdown to get AI-suggested key topics for study.
                 </div>
             </div>
 
@@ -208,7 +219,6 @@
                     <div id="resultsContainer" class="hidden">
                         <h2 class="text-2xl font-bold mb-4">Results</h2>
                         <div id="resultsContent" class="space-y-4"></div>
-                         <!-- NEW: AI Insights on Results Container -->
                         <div id="ai-insights-container" class="mt-6 hidden"></div>
                     </div>
                 </div>
@@ -233,7 +243,7 @@
             selectedSubjects: [],
             userDocRef: null,
             auth: null,
-            lastCalculationResults: null, // NEW: Store last calculation results for AI
+            lastCalculationResults: null, 
             async saveData() {
                 if (this.userDocRef) {
                     await setDoc(this.userDocRef, { 
@@ -257,7 +267,7 @@
                 data[field] = value === '' ? '' : parseFloat(value);
                 this.saveData();
                 document.getElementById('resultsContainer').classList.add('hidden');
-                document.getElementById('ai-insights-container').classList.add('hidden'); // Also hide AI insights
+                document.getElementById('ai-insights-container').classList.add('hidden');
             },
             logout() {
                 if (this.auth) {
@@ -270,7 +280,7 @@
                 this.renderSubjectsList();
                 this.renderAttendanceOverview();
                 this.renderInputForm();
-                this.renderSubjectExplainer();
+                this.renderTopicSuggester();
                 if(this.currentMode) {
                     document.querySelectorAll('.mode-button').forEach(btn => btn.classList.remove('active'));
                     const activeBtn = document.getElementById(`mode-${this.currentMode}`);
@@ -372,7 +382,6 @@
                     insightsContainer.classList.add('hidden');
                 } else {
                     contentDiv.innerHTML = content;
-                    // NEW: Show the AI insights button along with the results
                     insightsContainer.innerHTML = `
                         <h3 class="text-xl font-bold mb-4 text-gradient">✨ AI Result Insights</h3>
                         <div id="ai-insights-content" class="bg-black/20 p-6 rounded-lg min-h-[100px] text-white/80 leading-relaxed">
@@ -564,10 +573,14 @@
                 
                 if (validSubjectsCount > 1) {
                     resultsHTML += isBunkMode ? this.generateBunkSummaryCard(summaryValue) : this.generateAttendSummaryCard(summaryValue);
-                    resultsSummaryForAI += `In total, I can bunk ${summaryValue} class(es).`;
+                    if (isBunkMode) {
+                        resultsSummaryForAI += `In total, I can bunk ${summaryValue} class(es).`;
+                    } else {
+                        resultsSummaryForAI += `In total, I need to attend ${summaryValue} class(es).`;
+                    }
                 }
                 
-                this.lastCalculationResults = resultsSummaryForAI;
+                this.lastCalculationResults = { text: resultsSummaryForAI, type: isBunkMode ? 'bunk' : 'attend' };
                 this.showResults(resultsHTML);
             },
             generateAttendResultCard(index, data) {
@@ -845,112 +858,8 @@
                 }
                 button.closest('.fixed').remove();
             },
-             async getStudyPlan() {
-                const recommendationDiv = document.getElementById('study-plan-recommendation');
-                const goalInput = document.getElementById('studyGoalInput');
-                const goal = goalInput.value.trim();
-
-                if (!goal) {
-                    recommendationDiv.textContent = "Please enter a study goal first.";
-                    return;
-                }
-                
-                recommendationDiv.innerHTML = `<div class="flex items-center justify-center"><i class="fas fa-spinner fa-spin text-2xl mr-3"></i> Generating your personalized study plan...</div>`;
-
-                const timetableString = Object.entries(this.timetable).map(([day, subjects]) => {
-                    if (Object.keys(subjects).length === 0) return null;
-                    const subjectDetails = Object.entries(subjects).map(([index, hours]) => `${this.subjects[parseInt(index)]} (${hours} hour/s)`).join(', ');
-                    return `- ${day.charAt(0).toUpperCase() + day.slice(1)}: ${subjectDetails}`;
-                }).filter(Boolean).join('\n');
-                
-                const subjectsList = this.subjects.join(', ');
-
-                const systemPrompt = "You are an expert academic coach. Your task is to create a realistic and effective study plan for a college student based on their subjects, weekly class schedule, and a specific goal. The plan should be actionable and spread out over the given timeframe.";
-                const userQuery = `
-                    Here is my list of subjects: ${subjectsList}
-                    Here is my weekly class schedule:
-                    ${timetableString}
-
-                    My study goal is: "${goal}"
-
-                    Please generate a structured study plan to help me achieve this goal. The plan should:
-                    1. Be broken down by day or week, depending on the goal's timeframe.
-                    2. Suggest which subjects to focus on each day.
-                    3. Allocate study time in the free slots available in my schedule (outside of my class hours).
-                    4. Be realistic and include time for breaks.
-                    
-                    Present the plan in a clear, easy-to-follow format using Markdown.
-                `;
-
-                const apiKey = window.firebaseConfig.apiKey;
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-                const payload = {
-                    contents: [{ parts: [{ text: userQuery }] }],
-                };
-
-                try {
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    const result = await response.json();
-                    const candidate = result.candidates?.[0];
-
-                    if (candidate && candidate.content?.parts?.[0]?.text) {
-                        const text = candidate.content.parts[0].text;
-                        recommendationDiv.innerHTML = `<div class="ai-recommendation-content">${marked.parse(text)}</div>`;
-                    } else {
-                         let errorMessage = "Sorry, I couldn't generate a study plan. The response from the AI was empty.";
-                        if (candidate?.finishReason === 'SAFETY' || result.promptFeedback?.blockReason === 'SAFETY') {
-                             errorMessage = "The AI couldn't generate a plan due to safety filters. Please try rephrasing your goal.";
-                        }
-                        recommendationDiv.textContent = errorMessage;
-                    }
-                } catch (error) {
-                    console.error("Error fetching study plan:", error);
-                    recommendationDiv.textContent = "An error occurred while trying to get your study plan.";
-                }
-            },
-             async getSubjectSummary() {
-                const select = document.getElementById('subject-explainer-select');
-                const subjectName = select.value;
-                const contentDiv = document.getElementById('subject-summary-content');
-
-                if (!subjectName) {
-                    contentDiv.textContent = "Please select a subject from the list first.";
-                    return;
-                }
-                
-                contentDiv.innerHTML = `<div class="flex items-center justify-center"><i class="fas fa-spinner fa-spin mr-2"></i> Generating summary for ${subjectName}...</div>`;
-
-                const userQuery = `Briefly explain what the academic subject '${subjectName}' is about in 2-3 sentences for a college student.`;
-                const apiKey = window.firebaseConfig.apiKey;
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-                const payload = {
-                    contents: [{ parts: [{ text: userQuery }] }],
-                };
-
-                try {
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    const result = await response.json();
-                    const candidate = result.candidates?.[0];
-                    if (candidate && candidate.content?.parts?.[0]?.text) {
-                        contentDiv.innerHTML = marked.parse(candidate.content.parts[0].text);
-                    } else {
-                        contentDiv.textContent = "Sorry, I couldn't generate a summary for this subject.";
-                    }
-                } catch (error) {
-                    console.error("Error fetching subject summary:", error);
-                    contentDiv.textContent = "An error occurred while trying to get a summary.";
-                }
-            },
-            renderSubjectExplainer() {
-                const select = document.getElementById('subject-explainer-select');
+            renderTopicSuggester() {
+                const select = document.getElementById('topic-suggester-select');
                 select.innerHTML = '<option value="">-- Select a Subject --</option>'; // Default option
                 if (this.subjects && this.subjects.length > 0) {
                     this.subjects.forEach((subject) => {
@@ -961,9 +870,46 @@
                     });
                 }
             },
+            async getTopicSuggestions() {
+                const select = document.getElementById('topic-suggester-select');
+                const subjectName = select.value;
+                const contentDiv = document.getElementById('topic-suggestion-content');
+
+                if (!subjectName) {
+                    contentDiv.textContent = "Please select a subject from the list first.";
+                    return;
+                }
+                
+                contentDiv.innerHTML = `<div class="flex items-center justify-center"><i class="fas fa-spinner fa-spin mr-2"></i> Generating key topics for ${subjectName}...</div>`;
+
+                const userQuery = `I am a college student studying '${subjectName}'. Suggest 5 key topics or concepts I should focus on for my upcoming exams. Provide a brief, one-sentence description for each topic.`;
+                const apiKey = window.firebaseConfig.apiKey;
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                };
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const result = await response.json();
+                    const candidate = result.candidates?.[0];
+                    if (candidate && candidate.content?.parts?.[0]?.text) {
+                        contentDiv.innerHTML = `<div class="ai-recommendation-content">${marked.parse(candidate.content.parts[0].text)}</div>`;
+                    } else {
+                        contentDiv.textContent = "Sorry, I couldn't generate topics for this subject.";
+                    }
+                } catch (error) {
+                    console.error("Error fetching topic suggestions:", error);
+                    contentDiv.textContent = "An error occurred while trying to get suggestions.";
+                }
+            },
             async getAIResultInsights() {
                 const insightsDiv = document.getElementById('ai-insights-content');
-                if (!this.lastCalculationResults) return;
+                if (!this.lastCalculationResults || !this.lastCalculationResults.text) return;
 
                 insightsDiv.innerHTML = `<div class="flex items-center justify-center"><i class="fas fa-spinner fa-spin text-2xl mr-3"></i> Generating insights based on your results...</div>`;
                 
@@ -974,15 +920,30 @@
                 }).filter(Boolean).join('\n');
 
                 const systemPrompt = "You are an expert academic advisor. Based on the student's calculation results and their timetable, provide a brief, actionable mini-plan or advice. Be encouraging and focus on a realistic next step.";
-                const userQuery = `
-                    Here are the results of my attendance calculation:
-                    ${this.lastCalculationResults}
+                
+                // MODIFIED: Create a context-aware prompt
+                let userQuery;
+                if (this.lastCalculationResults.type === 'attend') {
+                    userQuery = `
+                        Here are the results of my attendance calculation. I need to attend more classes:
+                        ${this.lastCalculationResults.text}
 
-                    Here is my weekly timetable:
-                    ${timetableString}
+                        Here is my weekly timetable:
+                        ${timetableString}
 
-                    Based on this, give me a short (2-3 sentences) piece of actionable advice. For example, if I need to attend many classes, suggest focusing on specific days with a heavy class load. If I can bunk many classes, suggest how to use that freedom wisely.
-                `;
+                        Based on this, give me a short (2-3 sentences) piece of actionable advice. Suggest which days I should focus on attending all my classes based on my timetable to catch up quickly.
+                    `;
+                } else { // type is 'bunk'
+                    userQuery = `
+                        Here are the results of my attendance calculation. I have classes I can afford to bunk:
+                        ${this.lastCalculationResults.text}
+
+                        Here is my weekly timetable:
+                        ${timetableString}
+
+                        Based on this, give me a short (2-3 sentences) piece of actionable advice. Suggest how I could productively use the free time from bunking classes, perhaps by focusing on other subjects I have on those same days.
+                    `;
+                }
 
                 const apiKey = window.firebaseConfig.apiKey;
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
