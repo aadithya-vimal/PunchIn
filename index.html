@@ -3,10 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- SEO Tags -->
-    <title>Punch.In | AI Attendance Calculator & Scholar Companion</title>
-    <meta name="description" content="Meet Punch.In, your AI Scholar Companion. Go beyond simple attendance tracking with a strategic bunk planner, personalized study schedules, and AI-powered topic suggestions. The ultimate tool for academic excellence.">
-    
+    <title>Punch.In Scholar Companion</title>
     <link rel="icon" type="image/x-icon" href="AttendanceApplication.ico">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -86,7 +83,8 @@
                 window.appState.renderAll();
             } else {
                 window.appState.renderAttendanceOverview();
-                 window.appState.renderWelcomeMessage();
+                window.appState.renderWelcomeMessage();
+                window.appState.renderTimetableGlance();
             }
         });
 
@@ -157,6 +155,16 @@
                 <h2 class="text-3xl font-bold mb-6 text-center">Attendance Overview</h2>
                 <div id="attendanceOverview" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"></div>
             </div>
+
+            <div class="mb-8 bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg">
+                <div class="flex justify-between items-center mb-4">
+                     <h2 class="text-3xl font-bold">This Week's Schedule</h2>
+                     <button onclick="window.appState.openTimetableWindow()" title="Set Timetable" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-transform hover:scale-105 flex items-center gap-2">
+                        <i class="fas fa-clock"></i> Set Timetable
+                    </button>
+                </div>
+                <div id="timetable-glance-content"></div>
+            </div>
             
             <div id="ai-assistant" class="bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg mb-8">
                  <div class="flex flex-col md:flex-row justify-between items-center mb-4">
@@ -207,10 +215,7 @@
                 <div class="lg:w-1/4 bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg">
                     <div class="flex justify-between items-center mb-6">
                         <h2 class="text-2xl font-bold">Your Subjects</h2>
-                        <div class="flex gap-2">
-                             <button onclick="window.appState.openTimetableWindow()" title="Set Timetable" class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full transition-transform hover:scale-110"><i class="fas fa-clock"></i></button>
-                            <button onclick="window.appState.openEditWindow()" title="Edit Subjects" class="bg-indigo-500 hover:bg-indigo-600 text-white p-2 rounded-full transition-transform hover:scale-110"><i class="fas fa-edit"></i></button>
-                        </div>
+                        <button onclick="window.appState.openEditWindow()" title="Edit Subjects" class="bg-indigo-500 hover:bg-indigo-600 text-white p-2 rounded-full transition-transform hover:scale-110"><i class="fas fa-edit"></i></button>
                     </div>
                     <div class="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto pr-2" id="subjectsList"></div>
                 </div>
@@ -289,6 +294,7 @@
                 this.renderWelcomeMessage();
                 this.renderSubjectsList();
                 this.renderAttendanceOverview();
+                this.renderTimetableGlance();
                 this.renderInputForm();
                 this.renderTopicSuggester();
                 if(this.currentMode) {
@@ -727,6 +733,7 @@
                 });
                 this.timetable = newTimetable;
                 this.saveData();
+                this.renderTimetableGlance();
                 button.closest('.fixed').remove();
             },
             async getAIRecommendation() {
@@ -743,7 +750,7 @@
 
                 const timetableString = Object.entries(this.timetable).map(([day, subjects]) => {
                     if (Object.keys(subjects).length === 0) return null;
-                    const subjectDetails = Object.entries(subjects).map(([index, hours]) => `${this.subjects[parseInt(index)]} (${hours} hour/s)`).join(', ');
+                    const subjectDetails = Object.entries(subjects).map(([index, hours]) => `${this.subjects[parseInt(index)]} (${hours} period/s)`).join(', ');
                     return `- ${day.charAt(0).toUpperCase() + day.slice(1)}: ${subjectDetails}`;
                 }).filter(Boolean).join('\n');
 
@@ -1073,6 +1080,41 @@
                     this.saveData();
                 }
                 button.closest('.fixed').remove();
+            },
+            renderTimetableGlance() {
+                const container = document.getElementById('timetable-glance-content');
+                const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                let hasClasses = Object.values(this.timetable).some(day => Object.keys(day).length > 0);
+                
+                if (!hasClasses && this.subjects.length > 0) {
+                     container.innerHTML = `<div class="text-center text-white/70 bg-black/20 p-6 rounded-xl"><p>Your weekly timetable is empty.</p><button onclick="window.appState.openTimetableWindow()" class="mt-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg">Set Timetable Now</button></div>`;
+                } else if (this.subjects.length > 0) {
+                    let content = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">`;
+                    days.forEach(day => {
+                        const dayKey = day.toLowerCase();
+                        const subjectsToday = this.timetable[dayKey];
+                        
+                        content += `<div class="bg-black/20 p-4 rounded-lg">`;
+                        content += `<h3 class="font-bold text-lg mb-2 text-center border-b border-white/10 pb-2">${day}</h3>`;
+                        
+                        if (subjectsToday && Object.keys(subjectsToday).length > 0) {
+                            content += `<ul class="space-y-2 text-sm mt-3">`;
+                            Object.entries(subjectsToday).forEach(([index, hours]) => {
+                                if(this.subjects[parseInt(index)]) {
+                                    content += `<li class="flex justify-between"><span>${this.subjects[parseInt(index)]}</span><span class="font-semibold">${hours} period(s)</span></li>`;
+                                }
+                            });
+                            content += `</ul>`;
+                        } else {
+                            content += `<p class="text-center text-white/50 italic mt-4">No classes scheduled.</p>`;
+                        }
+                        content += `</div>`;
+                    });
+                    content += `</div>`;
+                    container.innerHTML = content;
+                } else {
+                    container.innerHTML = ``; // Hide if no subjects exist
+                }
             },
         };
     </script>
