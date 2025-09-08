@@ -9,7 +9,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-    <!-- Firebase SDK Scripts -->
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
       import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
@@ -168,8 +167,8 @@
                 <div class="flex justify-between items-center mb-4">
                      <h2 class="text-3xl font-bold">This Week's Schedule</h2>
                      <button onclick="window.appState.openTimetableWindow()" title="Set Timetable" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-transform hover:scale-105 flex items-center gap-2">
-                        <i class="fas fa-clock"></i> Set Timetable
-                    </button>
+                         <i class="fas fa-clock"></i> Set Timetable
+                     </button>
                 </div>
                 <div id="timetable-glance-content"></div>
             </div>
@@ -181,10 +180,10 @@
                          <i class="fas fa-brain mr-3"></i> Find Best Bunk Days
                      </button>
                  </div>
-                <div id="ai-recommendation" class="bg-black/20 p-6 rounded-lg min-h-[100px] text-white/80 leading-relaxed">
-                     Click the button to get an AI-powered recommendation on the best days to bunk for a long weekend, based on your timetable and local holidays.
-                 </div>
-                  <div id="ai-sources" class="text-xs text-white/40 mt-3"></div>
+                 <div id="ai-recommendation" class="bg-black/20 p-6 rounded-lg min-h-[100px] text-white/80 leading-relaxed">
+                      Click the button to get an AI-powered recommendation on the best days to bunk for a long weekend, based on your timetable and local holidays.
+                   </div>
+                   <div id="ai-sources" class="text-xs text-white/40 mt-3"></div>
             </div>
 
             <div id="ai-study-planner" class="bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg mb-8">
@@ -271,7 +270,7 @@
             userDocRef: null,
             auth: null,
             lastCalculationResults: null, 
-            async saveData(isDailyUpdate = false) {
+            async saveData() {
                 if (this.userDocRef) {
                     await setDoc(this.userDocRef, { 
                         subjects: this.subjects, 
@@ -279,9 +278,6 @@
                         timetable: this.timetable,
                         profile: this.profile
                     });
-                }
-                if(isDailyUpdate) {
-                    this.renderAttendanceOverview();
                 }
             },
             getSubjectData(index) {
@@ -831,8 +827,12 @@
                 }
                 
                 data.dailyStatus[todayDate][period] = status;
-                this.saveData(true);
+                
+                this.saveData();
                 this.renderDailyDashboard();
+                this.renderAttendanceOverview();
+                this.renderInputForm();
+                document.getElementById('resultsContainer').classList.add('hidden'); // Hide old results
             },
             undoPunchIn(subjectIndex, period, lastStatus) {
                 const data = this.getSubjectData(subjectIndex);
@@ -848,8 +848,12 @@
                 }
 
                 delete data.dailyStatus[todayDate][period];
-                this.saveData(true);
+
+                this.saveData();
                 this.renderDailyDashboard();
+                this.renderAttendanceOverview();
+                this.renderInputForm();
+                document.getElementById('resultsContainer').classList.add('hidden'); // Hide old results
             },
             async getAIRecommendation() {
                 const recommendationDiv = document.getElementById('ai-recommendation');
@@ -895,7 +899,7 @@
                 `;
 
                 const apiKey = window.firebaseConfig.apiKey; 
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
                 const payload = {
                     contents: [{ parts: [{ text: userQuery }] }],
                     tools: [{ "google_search": {} }],
@@ -976,7 +980,7 @@
                 }
 
                 const apiKey = window.firebaseConfig.apiKey;
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
                 const payload = {
                     contents: [{ parts: [{ text: userQuery }] }],
                 };
@@ -1039,7 +1043,7 @@
                 `;
 
                 const apiKey = window.firebaseConfig.apiKey;
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
                 const payload = {
                     contents: [{ parts: [{ text: userQuery }] }],
                 };
@@ -1058,10 +1062,10 @@
                         recommendationDiv.innerHTML = `<div class="ai-recommendation-content">${marked.parse(text)}</div>`;
                     } else {
                          let errorMessage = "Sorry, I couldn't generate a study plan. The response from the AI was empty.";
-                        if (candidate?.finishReason === 'SAFETY' || result.promptFeedback?.blockReason === 'SAFETY') {
-                             errorMessage = "The AI couldn't generate a plan due to safety filters. Please try rephrasing your goal.";
-                        }
-                        recommendationDiv.textContent = errorMessage;
+                         if (candidate?.finishReason === 'SAFETY' || result.promptFeedback?.blockReason === 'SAFETY') {
+                              errorMessage = "The AI couldn't generate a plan due to safety filters. Please try rephrasing your goal.";
+                         }
+                         recommendationDiv.textContent = errorMessage;
                     }
                 } catch (error) {
                     console.error("Error fetching study plan:", error);
@@ -1094,7 +1098,7 @@
 
                 const userQuery = `I am a college student studying '${subjectName}'. Suggest 5 key topics or concepts I should focus on for my upcoming exams. Provide a brief, one-sentence description for each topic.`;
                 const apiKey = window.firebaseConfig.apiKey;
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
                 const payload = {
                     contents: [{ parts: [{ text: userQuery }] }],
                 };
@@ -1227,166 +1231,6 @@
                 } else {
                     container.innerHTML = ``; // Hide if no subjects exist
                 }
-            },
-            openTimetableWindow() {
-                const modal = document.createElement('div');
-                modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4';
-                
-                let timetableHTML = '';
-
-                if (this.subjects.length === 0) {
-                    timetableHTML = `<p class="text-center text-white/60 col-span-full">Please add subjects first before setting a timetable.</p>`;
-                } else {
-                    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-                    timetableHTML += `<div class="grid grid-cols-7 gap-4 text-center items-center font-bold sticky top-0 bg-gray-900 py-2"><div>Period</div>${days.map(d => `<div>${d}</div>`).join('')}</div>`;
-
-                    for (let i = 1; i <= 8; i++) { // 8 periods
-                        timetableHTML += `<div class="grid grid-cols-7 gap-4 items-center border-t border-white/10 py-2">`;
-                        timetableHTML += `<div class="font-semibold">Period ${i}</div>`;
-                        days.forEach(day => {
-                            const dayKey = day.toLowerCase();
-                            let optionsHTML = '<option value="-1">--</option>'; // -1 for free period
-                            this.subjects.forEach((subject, index) => {
-                                const isSelected = (this.timetable[dayKey] && this.timetable[dayKey][i] === index);
-                                optionsHTML += `<option value="${index}" ${isSelected ? 'selected' : ''}>${subject}</option>`;
-                            });
-                            timetableHTML += `<div><select data-day="${dayKey}" data-period="${i}" class="timetable-select w-full bg-white/10 text-center rounded-md p-1 select-dark text-xs">${optionsHTML}</select></div>`;
-                        });
-                        timetableHTML += `</div>`;
-                    }
-                }
-
-                modal.innerHTML = `
-                    <div class="bg-gray-900 rounded-xl p-6 w-full max-w-6xl max-h-[90vh] flex flex-col">
-                        <div class="flex justify-between items-center mb-4 flex-shrink-0">
-                            <h2 class="text-2xl font-bold">Set Weekly Timetable</h2>
-                            <button onclick="this.closest('.fixed').remove()" class="text-white/60 hover:text-white"><i class="fas fa-times text-xl"></i></button>
-                        </div>
-                        <p class="text-white/60 text-sm mb-4 flex-shrink-0">Assign a subject to each period of the day. Select '--' for a free period.</p>
-                        <div class="flex-grow overflow-y-auto pr-2">
-                           ${timetableHTML}
-                        </div>
-                        <div class="flex justify-end gap-3 mt-6 flex-shrink-0">
-                            <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 rounded-lg border border-white/20 hover:bg-white/10">Cancel</button>
-                            <button onclick="window.appState.saveTimetable(this)" class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg">Save Timetable</button>
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(modal);
-            },
-            saveTimetable(button) {
-                const newTimetable = {};
-                const selects = document.querySelectorAll('.timetable-select');
-                selects.forEach(select => {
-                    const day = select.dataset.day;
-                    const period = parseInt(select.dataset.period);
-                    const subjectIndex = parseInt(select.value);
-
-                    if (!newTimetable[day]) {
-                        newTimetable[day] = {};
-                    }
-                    if (subjectIndex !== -1) {
-                        newTimetable[day][period] = subjectIndex;
-                    }
-                });
-                this.timetable = newTimetable;
-                this.saveData();
-                this.renderTimetableGlance();
-                button.closest('.fixed').remove();
-            },
-            renderDailyDashboard() {
-                const titleDiv = document.getElementById('daily-dashboard-title');
-                const contentDiv = document.getElementById('daily-dashboard-content');
-                const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-                const today = new Date();
-                const dayName = days[today.getDay()];
-                const dayKey = dayName.toLowerCase();
-                const todayDate = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-
-                titleDiv.textContent = `Today's Schedule (${dayName})`;
-                
-                if (this.subjects.length === 0){
-                    contentDiv.innerHTML = `<p class="text-center text-white/70 italic">Add subjects and set a timetable to see your daily schedule here.</p>`;
-                    return;
-                }
-
-                const periods = this.timetable[dayKey];
-                if (!periods || Object.keys(periods).length === 0) {
-                    contentDiv.innerHTML = `<p class="text-center text-white/70 italic">No classes scheduled for today. Enjoy your day off!</p>`;
-                    return;
-                }
-
-                let contentHTML = '<div class="space-y-3">';
-                Object.entries(periods).sort(([p1], [p2]) => p1 - p2).forEach(([period, subjectIndex]) => {
-                    const subjectName = this.subjects[subjectIndex];
-                    const data = this.getSubjectData(subjectIndex);
-                    const status = data.dailyStatus[todayDate] ? data.dailyStatus[todayDate][period] : null;
-
-                    const percentage = (data.attended && data.total) ? (data.attended / data.total) * 100 : 0;
-                    const isAtRisk = percentage < 80;
-
-                    contentHTML += `
-                        <div class="bg-black/20 p-3 rounded-lg flex justify-between items-center text-sm">
-                            <div>
-                                <span class="font-bold mr-2">Period ${period}:</span>
-                                <span>${subjectName}</span>
-                                ${isAtRisk ? '<i class="fas fa-exclamation-triangle text-yellow-400 ml-2" title="Attendance is getting low!"></i>' : ''}
-                            </div>
-                            <div class="flex items-center gap-2">`;
-                    
-                    if (status === 'attended') {
-                        contentHTML += `<span class="text-green-400 font-semibold">Attended</span><button onclick="window.appState.undoPunchIn(${subjectIndex}, ${period}, 'attended')" class="text-xs text-gray-400 hover:text-white">Undo</button>`;
-                    } else if (status === 'bunked') {
-                        contentHTML += `<span class="text-red-400 font-semibold">Bunked</span><button onclick="window.appState.undoPunchIn(${subjectIndex}, ${period}, 'bunked')" class="text-xs text-gray-400 hover:text-white">Undo</button>`;
-                    } else {
-                        contentHTML += `
-                            <button onclick="window.appState.punchIn(${subjectIndex}, ${period}, 'attended')" class="bg-green-500/20 hover:bg-green-500/40 text-green-300 rounded-full w-8 h-8 flex items-center justify-center transition-colors" title="Attended">✅</button>
-                            <button onclick="window.appState.punchIn(${subjectIndex}, ${period}, 'bunked')" class="bg-red-500/20 hover:bg-red-500/40 text-red-300 rounded-full w-8 h-8 flex items-center justify-center transition-colors" title="Bunked">❌</button>
-                        `;
-                    }
-
-                    contentHTML += `</div></div>`;
-                });
-                contentHTML += `</div>`;
-                contentDiv.innerHTML = contentHTML;
-            },
-            punchIn(subjectIndex, period, status) {
-                const data = this.getSubjectData(subjectIndex);
-                const todayDate = new Date().toISOString().split('T')[0];
-
-                if (!data.dailyStatus[todayDate]) {
-                    data.dailyStatus[todayDate] = {};
-                }
-                
-                if (data.dailyStatus[todayDate][period]) return; // Already marked
-
-                if (status === 'attended') {
-                    data.attended = (data.attended || 0) + 1;
-                    data.total = (data.total || 0) + 1;
-                } else if (status === 'bunked') {
-                    data.total = (data.total || 0) + 1;
-                }
-                
-                data.dailyStatus[todayDate][period] = status;
-                this.saveData(true);
-                this.renderDailyDashboard();
-            },
-            undoPunchIn(subjectIndex, period, lastStatus) {
-                const data = this.getSubjectData(subjectIndex);
-                const todayDate = new Date().toISOString().split('T')[0];
-
-                if (!data.dailyStatus[todayDate] || !data.dailyStatus[todayDate][period]) return;
-
-                if (lastStatus === 'attended') {
-                    data.attended -= 1;
-                    data.total -= 1;
-                } else if (lastStatus === 'bunked') {
-                    data.total -= 1;
-                }
-
-                delete data.dailyStatus[todayDate][period];
-                this.saveData(true);
-                this.renderDailyDashboard();
             },
         };
     </script>
