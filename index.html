@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Punch.In Scholar Companion</title>
-    <meta name="description" content="Meet Punch.In, your AI Scholar Companion. Go beyond simple attendance tracking with a strategic bunk planner, personalized study schedules, and AI-powered topic suggestions. The ultimate tool for academic excellence.">
-    
     <link rel="icon" type="image/x-icon" href="AttendanceApplication.ico">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -86,6 +84,7 @@
             } else {
                 window.appState.renderAttendanceOverview();
                 window.appState.renderWelcomeMessage();
+                window.appState.renderDailyDashboard();
                 window.appState.renderTimetableGlance();
             }
         });
@@ -152,6 +151,13 @@
             </header>
 
             <div id="welcome-message" class="text-center mb-10 text-2xl font-light text-white/90"></div>
+
+            <div class="mb-10 bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 id="daily-dashboard-title" class="text-3xl font-bold"></h2>
+                </div>
+                <div id="daily-dashboard-content"></div>
+            </div>
 
             <div class="mb-10">
                 <h2 class="text-3xl font-bold mb-6 text-center">Attendance Overview</h2>
@@ -265,7 +271,7 @@
             userDocRef: null,
             auth: null,
             lastCalculationResults: null, 
-            async saveData() {
+            async saveData(isDailyUpdate = false) {
                 if (this.userDocRef) {
                     await setDoc(this.userDocRef, { 
                         subjects: this.subjects, 
@@ -274,10 +280,16 @@
                         profile: this.profile
                     });
                 }
+                if(isDailyUpdate) {
+                    this.renderAttendanceOverview();
+                }
             },
             getSubjectData(index) {
                 if (!this.attendanceData[index]) {
-                    this.attendanceData[index] = { attended: '', total: '', requiredPerc: 75 };
+                    this.attendanceData[index] = { attended: 0, total: 0, requiredPerc: 75, dailyStatus: {} };
+                }
+                 if (!this.attendanceData[index].dailyStatus) {
+                    this.attendanceData[index].dailyStatus = {};
                 }
                 return this.attendanceData[index];
             },
@@ -285,7 +297,7 @@
                 const { index, field } = e.target.dataset;
                 const value = e.target.value;
                 const data = this.getSubjectData(index);
-                data[field] = value === '' ? '' : parseFloat(value);
+                data[field] = value === '' ? 0 : parseFloat(value);
                 this.saveData();
                 document.getElementById('resultsContainer').classList.add('hidden');
                 document.getElementById('ai-insights-container').classList.add('hidden');
@@ -301,6 +313,7 @@
                 this.renderWelcomeMessage();
                 this.renderSubjectsList();
                 this.renderAttendanceOverview();
+                this.renderDailyDashboard();
                 this.renderTimetableGlance();
                 this.renderInputForm();
                 this.renderTopicSuggester();
@@ -383,8 +396,8 @@
                             <div class="bg-white/5 backdrop-blur-lg p-6 rounded-xl border border-white/10 shadow-xl">
                                 <h3 class="text-xl font-bold mb-4">${this.subjects[index]}</h3>
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div><label class="block mb-2 text-sm">Hours Attended</label><input type="number" min="0" data-index="${index}" data-field="attended" value="${data.attended}" oninput="window.appState.updateSubjectDataFromInput(event)" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2" placeholder="e.g. 15"></div>
-                                    <div><label class="block mb-2 text-sm">Total Classes</label><input type="number" min="0" data-index="${index}" data-field="total" value="${data.total}" oninput="window.appState.updateSubjectDataFromInput(event)" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2" placeholder="e.g. 20"></div>
+                                    <div><label class="block mb-2 text-sm">Classes Attended</label><input type="number" min="0" data-index="${index}" data-field="attended" value="${data.attended}" oninput="window.appState.updateSubjectDataFromInput(event)" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2" placeholder="e.g. 15"></div>
+                                    <div><label class="block mb-2 text-sm">Total Classes Held</label><input type="number" min="0" data-index="${index}" data-field="total" value="${data.total}" oninput="window.appState.updateSubjectDataFromInput(event)" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2" placeholder="e.g. 20"></div>
                                     <div><label class="block mb-2 text-sm">Required %</label><input type="number" min="1" max="99" data-index="${index}" data-field="requiredPerc" value="${data.requiredPerc}" oninput="window.appState.updateSubjectDataFromInput(event)" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2" placeholder="e.g. 75"></div>
                                 </div>
                             </div>
@@ -753,7 +766,7 @@
                 const attendanceStatus = this.subjects.map((subject, index) => {
                     const data = this.getSubjectData(index);
                     const percentage = (data.attended && data.total) ? ((data.attended / data.total) * 100).toFixed(1) : 'N/A';
-                    return `- ${subject}: ${percentage}%`;
+                    return `- ${subject}: ${percentage}% (Required: ${data.requiredPerc}%)`;
                 }).join('\n');
 
                 const timetableString = Object.entries(this.timetable).map(([day, periods]) => {
@@ -770,9 +783,7 @@
                 const systemPrompt = "You are an expert academic advisor for a student in Bengaluru, Karnataka, India. Your goal is to find the most strategic days for the student to miss class (bunk) to get a long weekend. Be concise, friendly, and provide actionable advice. Base your holiday information on real-time search results for the user's location.";
                 const userQuery = `
                     My current location is Bengaluru, Karnataka, India.
-                    My required attendance percentage is 75% for all subjects.
-
-                    Here is my current attendance status:
+                    Here is my current attendance status, including the required percentage for each subject:
                     ${attendanceStatus}
 
                     Here is my weekly timetable (showing subject per period):
@@ -782,7 +793,7 @@
                     Then, analyze my timetable and attendance. Identify any Fridays or Mondays that are working days but are next to a public holiday or weekend, creating a potential 3-day or longer weekend. 
 
                     For each of these strategic days, tell me:
-                    1. If I can afford to bunk all the classes on that day right now without any subject dropping below 75%.
+                    1. If I can afford to bunk all the classes on that day right now without any subject dropping below its required percentage.
                     2. If not, tell me exactly how many classes of which specific subjects I need to attend consecutively to 'earn' that day off.
                     
                     Present the best and most immediate option first. If no such opportunities exist, tell me that and wish me luck with my studies.
@@ -845,7 +856,7 @@
                     return `- ${day.charAt(0).toUpperCase() + day.slice(1)}: ${periodDetails}`;
                 }).filter(Boolean).join('\n');
 
-                const systemPrompt = "You are an expert academic advisor. Based on the student's calculation results and their timetable, provide a brief, actionable mini-plan or advice. Be encouraging and focus on a realistic next step.";
+                const systemPrompt = "You are an expert academic advisor. Based on the student's calculation results and their timetable, provide a brief, actionable mini-plan or advice. Be encouraging and focus on a realistic next step. Include a predictive element.";
                 
                 let userQuery;
                 if (this.lastCalculationResults.type === 'attend') {
@@ -856,7 +867,7 @@
                         Here is my weekly timetable:
                         ${timetableString}
 
-                        Based on this, give me a short (2-3 sentences) piece of actionable advice. Suggest which days I should focus on attending all my classes based on my timetable to catch up quickly.
+                        Based on this, give me a short (2-3 sentences) piece of actionable advice. Suggest which days I should focus on attending all my classes to catch up quickly. Also, give me a predictive outlook: if I follow this advice for a week, what might my attendance percentage look like?
                     `;
                 } else { // type is 'bunk'
                     userQuery = `
@@ -866,7 +877,7 @@
                         Here is my weekly timetable:
                         ${timetableString}
 
-                        Based on this, give me a short (2-3 sentences) piece of actionable advice. Suggest how I could productively use the free time from bunking classes, perhaps by focusing on other subjects I have on those same days.
+                        Based on this, give me a short (2-3 sentences) piece of actionable advice. Suggest how I could productively use the free time from bunking classes. Also, provide a predictive warning: if I bunk the classes you suggest, what will my new attendance be, and how many classes will I be from the danger zone?
                     `;
                 }
 
@@ -1188,6 +1199,100 @@
                 this.saveData();
                 this.renderTimetableGlance();
                 button.closest('.fixed').remove();
+            },
+            renderDailyDashboard() {
+                const titleDiv = document.getElementById('daily-dashboard-title');
+                const contentDiv = document.getElementById('daily-dashboard-content');
+                const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                const today = new Date();
+                const dayName = days[today.getDay()];
+                const dayKey = dayName.toLowerCase();
+                const todayDate = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+                titleDiv.textContent = `Today's Schedule (${dayName})`;
+                
+                if (this.subjects.length === 0){
+                    contentDiv.innerHTML = `<p class="text-center text-white/70 italic">Add subjects and set a timetable to see your daily schedule here.</p>`;
+                    return;
+                }
+
+                const periods = this.timetable[dayKey];
+                if (!periods || Object.keys(periods).length === 0) {
+                    contentDiv.innerHTML = `<p class="text-center text-white/70 italic">No classes scheduled for today. Enjoy your day off!</p>`;
+                    return;
+                }
+
+                let contentHTML = '<div class="space-y-3">';
+                Object.entries(periods).sort(([p1], [p2]) => p1 - p2).forEach(([period, subjectIndex]) => {
+                    const subjectName = this.subjects[subjectIndex];
+                    const data = this.getSubjectData(subjectIndex);
+                    const status = data.dailyStatus[todayDate] ? data.dailyStatus[todayDate][period] : null;
+
+                    const percentage = (data.attended && data.total) ? (data.attended / data.total) * 100 : 0;
+                    const isAtRisk = percentage < 80;
+
+                    contentHTML += `
+                        <div class="bg-black/20 p-3 rounded-lg flex justify-between items-center text-sm">
+                            <div>
+                                <span class="font-bold mr-2">Period ${period}:</span>
+                                <span>${subjectName}</span>
+                                ${isAtRisk ? '<i class="fas fa-exclamation-triangle text-yellow-400 ml-2" title="Attendance is getting low!"></i>' : ''}
+                            </div>
+                            <div class="flex items-center gap-2">`;
+                    
+                    if (status === 'attended') {
+                        contentHTML += `<span class="text-green-400 font-semibold">Attended</span><button onclick="window.appState.undoPunchIn(${subjectIndex}, ${period}, 'attended')" class="text-xs text-gray-400 hover:text-white">Undo</button>`;
+                    } else if (status === 'bunked') {
+                        contentHTML += `<span class="text-red-400 font-semibold">Bunked</span><button onclick="window.appState.undoPunchIn(${subjectIndex}, ${period}, 'bunked')" class="text-xs text-gray-400 hover:text-white">Undo</button>`;
+                    } else {
+                        contentHTML += `
+                            <button onclick="window.appState.punchIn(${subjectIndex}, ${period}, 'attended')" class="bg-green-500/20 hover:bg-green-500/40 text-green-300 rounded-full w-8 h-8 flex items-center justify-center transition-colors" title="Attended">✅</button>
+                            <button onclick="window.appState.punchIn(${subjectIndex}, ${period}, 'bunked')" class="bg-red-500/20 hover:bg-red-500/40 text-red-300 rounded-full w-8 h-8 flex items-center justify-center transition-colors" title="Bunked">❌</button>
+                        `;
+                    }
+
+                    contentHTML += `</div></div>`;
+                });
+                contentHTML += `</div>`;
+                contentDiv.innerHTML = contentHTML;
+            },
+            punchIn(subjectIndex, period, status) {
+                const data = this.getSubjectData(subjectIndex);
+                const todayDate = new Date().toISOString().split('T')[0];
+
+                if (!data.dailyStatus[todayDate]) {
+                    data.dailyStatus[todayDate] = {};
+                }
+                
+                if (data.dailyStatus[todayDate][period]) return; // Already marked
+
+                if (status === 'attended') {
+                    data.attended = (data.attended || 0) + 1;
+                    data.total = (data.total || 0) + 1;
+                } else if (status === 'bunked') {
+                    data.total = (data.total || 0) + 1;
+                }
+                
+                data.dailyStatus[todayDate][period] = status;
+                this.saveData(true);
+                this.renderDailyDashboard();
+            },
+            undoPunchIn(subjectIndex, period, lastStatus) {
+                const data = this.getSubjectData(subjectIndex);
+                const todayDate = new Date().toISOString().split('T')[0];
+
+                if (!data.dailyStatus[todayDate] || !data.dailyStatus[todayDate][period]) return;
+
+                if (lastStatus === 'attended') {
+                    data.attended -= 1;
+                    data.total -= 1;
+                } else if (lastStatus === 'bunked') {
+                    data.total -= 1;
+                }
+
+                delete data.dailyStatus[todayDate][period];
+                this.saveData(true);
+                this.renderDailyDashboard();
             },
         };
     </script>
