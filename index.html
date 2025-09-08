@@ -339,6 +339,8 @@
                 e.target.value = data[field] || 0;
 
                 this.saveData();
+                this.renderAttendanceOverview();
+                this.renderSubjectsList();
                 document.getElementById('resultsContainer').classList.add('hidden');
                 document.getElementById('ai-insights-container').classList.add('hidden');
                 this.lastCalculationResults = null;
@@ -372,18 +374,42 @@
             renderAttendanceOverview() {
                 const container = document.getElementById('attendanceOverview');
                 container.innerHTML = '';
+                
                 if (!this.subjects || this.subjects.length === 0) {
                     container.innerHTML = `<p class="text-center text-white/60 col-span-full">No subjects found. Add subjects to see your overview.</p>`;
                     return;
                 }
+
+                // NEW: Calculate and render Overall card
+                const stats = this.calculateProfileStats();
+                const overallPercentage = stats.overallAttendance;
+                const overallColor = isNaN(overallPercentage) ? 'text-gray-400' : (overallPercentage < 75 ? 'text-red-400' : (overallPercentage < 85 ? 'text-yellow-400' : 'text-green-400'));
+                const radius = 30;
+                const circumference = 2 * Math.PI * radius;
+                const overallOffset = isNaN(overallPercentage) ? circumference : circumference - (overallPercentage / 100) * circumference;
+                
+                const overallCard = document.createElement('div');
+                overallCard.className = "bg-white/5 border-2 border-indigo-500/50 p-4 rounded-xl flex flex-col items-center justify-center text-center";
+                overallCard.innerHTML = `
+                    <div class="relative w-20 h-20 mb-2">
+                        <svg class="w-full h-full" viewBox="0 0 80 80">
+                            <circle class="text-white/10" stroke-width="8" stroke="currentColor" fill="transparent" r="${radius}" cx="40" cy="40" />
+                            <circle class="${overallColor} transition-all duration-500" stroke-width="8" stroke-dasharray="${circumference}" stroke-dashoffset="${overallOffset}" stroke-linecap="round" stroke="currentColor" fill="transparent" r="${radius}" cx="40" cy="40" transform="rotate(-90 40 40)"/>
+                        </svg>
+                        <span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-bold text-lg ${overallColor}">${isNaN(overallPercentage) ? '--' : overallPercentage.toFixed(2) + '%'}</span>
+                    </div>
+                    <p class="text-sm font-medium h-5 leading-tight">Overall</p>
+                    <p class="text-xs text-white/60">${stats.totalAttended} / ${stats.totalClasses}</p>`;
+                container.appendChild(overallCard);
+
+                // Render individual subject cards
                 this.subjects.forEach((subject, index) => {
                     const data = this.getSubjectData(index);
                     const { attended, total } = data;
                     let percentage = (attended != null && total != null && total > 0) ? (attended / total) * 100 : NaN;
                     let colorClass = isNaN(percentage) ? 'text-gray-400' : (percentage < 75 ? 'text-red-400' : (percentage < 85 ? 'text-yellow-400' : 'text-green-400'));
-                    const radius = 30;
-                    const circumference = 2 * Math.PI * radius;
                     const offset = isNaN(percentage) ? circumference : circumference - (percentage / 100) * circumference;
+                    
                     const card = document.createElement('div');
                     card.className = "bg-white/10 p-4 rounded-xl flex flex-col items-center justify-center text-center";
                     card.innerHTML = `
@@ -392,9 +418,10 @@
                                 <circle class="text-white/10" stroke-width="8" stroke="currentColor" fill="transparent" r="${radius}" cx="40" cy="40" />
                                 <circle class="${colorClass} transition-all duration-500" stroke-width="8" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round" stroke="currentColor" fill="transparent" r="${radius}" cx="40" cy="40" transform="rotate(-90 40 40)"/>
                             </svg>
-                            <span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-bold text-lg ${colorClass}">${isNaN(percentage) ? '--' : Math.floor(percentage) + '%'}</span>
+                            <span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-bold text-lg ${colorClass}">${isNaN(percentage) ? '--' : percentage.toFixed(2) + '%'}</span>
                         </div>
-                        <p class="text-sm font-medium h-10 leading-tight">${subject}</p>`;
+                        <p class="text-sm font-medium h-5 leading-tight">${subject}</p>
+                        <p class="text-xs text-white/60">${attended || 0} / ${total || 0}</p>`;
                     container.appendChild(card);
                 });
             },
@@ -529,12 +556,15 @@
             clearInputs() {
                 const subjectsToClear = this.currentMode.includes('all') ? this.subjects.map((_, i) => i) : this.selectedSubjects;
                 subjectsToClear.forEach(index => {
-                    this.attendanceData[index].attended = 0;
-                    this.attendanceData[index].total = 0;
+                    const data = this.getSubjectData(index);
+                    data.attended = 0;
+                    data.total = 0;
+                    data.requiredPerc = 75;
                 });
                 this.saveData();
                 this.renderInputForm();
                 this.renderAttendanceOverview();
+                this.renderSubjectsList();
                 document.getElementById('resultsContainer').classList.add('hidden');
             },
             openEditWindow() {
@@ -621,9 +651,7 @@
                     newAttendanceData[newIndex] = oldDataMap.get(newSubject) || { attended: 0, total: 0, requiredPerc: 75, dailyStatus: {} };
                 });
 
-                // Deep Debug Fix: Clean up timetable from deleted/reordered subjects
                 const cleanedTimetable = {};
-                const newSubjectsSet = new Set(newSubjects);
                 Object.entries(this.timetable).forEach(([day, periods]) => {
                     cleanedTimetable[day] = {};
                     Object.entries(periods).forEach(([period, subjectIndex]) => {
@@ -1076,7 +1104,7 @@
                         3.  Provide one, direct recommendation in the specified format below.
 
                         Output Format:
-                        - If safe, state ONLY: "Safe to bunk on [Day, Date]. This will create a [X]-day long weekend."
+                        - If safe, state ONLY: "Safe to bunk on [Day, Date]. This creates a [X]-day long weekend."
                         - If not safe, state ONLY: "Not safe to bunk on [Day, Date]. You must attend [Number] more class(es) of [Subject Name] first."
                         - If no opportunities exist, state ONLY: "No strategic bunk opportunities found in the next 3 months."
                     `;
@@ -1245,7 +1273,7 @@
                                     <p class="text-sm text-white/70">Total Subjects</p>
                                 </div>
                                 <div class="bg-white/5 p-4 rounded-lg">
-                                    <p class="text-2xl font-bold text-gradient">${stats.overallAttendance}%</p>
+                                    <p class="text-2xl font-bold text-gradient">${stats.overallAttendance.toFixed(2)}%</p>
                                     <p class="text-sm text-white/70">Overall Attendance</p>
                                 </div>
                             </div>
@@ -1277,9 +1305,9 @@
                     }
                 });
 
-                const overallAttendance = totalClasses > 0 ? ((totalAttended / totalClasses) * 100).toFixed(0) : 'N/A';
+                const overallAttendance = totalClasses > 0 ? ((totalAttended / totalClasses) * 100) : NaN;
                 
-                return { totalSubjects, overallAttendance };
+                return { totalSubjects, overallAttendance, totalAttended, totalClasses };
             },
             saveProfileChanges(button) {
                 const newDisplayName = document.getElementById('displayNameInput').value.trim();
@@ -1330,7 +1358,6 @@
                     const now = new Date();
                     let dateOptions, timeOptions;
 
-                    // Use shorter format for mobile screens
                     if (window.innerWidth < 768) {
                         dateOptions = { year: '2-digit', month: 'numeric', day: 'numeric' };
                         timeOptions = { hour: 'numeric', minute: '2-digit', hour12: true };
