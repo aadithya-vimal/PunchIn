@@ -187,7 +187,7 @@
 
             <div class="mb-10">
                 <h2 class="text-3xl font-bold mb-6 text-center">Attendance Overview</h2>
-                <div id="attendanceOverview" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"></div>
+                <div id="attendanceOverview" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4"></div>
             </div>
 
             <div class="mb-8 bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg">
@@ -380,49 +380,51 @@
                     return;
                 }
 
-                // NEW: Calculate and render Overall card
+                // Function to create a card
+                const createCard = (title, percentage, attended, total, isOverall = false) => {
+                    const colorClass = isNaN(percentage) ? 'text-gray-400' : (percentage < 75 ? 'text-red-400' : (percentage < 85 ? 'text-yellow-400' : 'text-green-400'));
+                    const radius = 28;
+                    const circumference = 2 * Math.PI * radius;
+                    const offset = isNaN(percentage) ? circumference : circumference - (percentage / 100) * circumference;
+
+                    const card = document.createElement('div');
+                    card.className = `p-3 rounded-xl flex flex-col items-center justify-between text-center ${isOverall ? 'bg-white/5 border-2 border-indigo-500/50' : 'bg-white/10'}`;
+                    
+                    // Dynamic font size for long names
+                    let titleClass = "font-medium leading-tight h-10 flex items-center justify-center";
+                    if(title.length > 25) {
+                        titleClass += " text-xs";
+                    } else if (title.length > 15) {
+                        titleClass += " text-sm";
+                    } else {
+                        titleClass += " text-base";
+                    }
+                    
+                    card.innerHTML = `
+                        <p class="${titleClass}">${title}</p>
+                        <div class="relative w-24 h-24 my-2">
+                            <svg class="w-full h-full" viewBox="0 0 64 64">
+                                <circle class="text-white/10" stroke-width="6" stroke="currentColor" fill="transparent" r="${radius}" cx="32" cy="32" />
+                                <circle class="${colorClass} transition-all duration-500" stroke-width="6" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round" stroke="currentColor" fill="transparent" r="${radius}" cx="32" cy="32" transform="rotate(-90 32 32)"/>
+                            </svg>
+                            <span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-bold text-xl ${colorClass}">${isNaN(percentage) ? '--' : percentage.toFixed(2) + '%'}</span>
+                        </div>
+                        <p class="text-xs text-white/70">${attended} / ${total}</p>
+                    `;
+                    return card;
+                };
+
+                // Create and prepend Overall card
                 const stats = this.calculateProfileStats();
-                const overallPercentage = stats.overallAttendance;
-                const overallColor = isNaN(overallPercentage) ? 'text-gray-400' : (overallPercentage < 75 ? 'text-red-400' : (overallPercentage < 85 ? 'text-yellow-400' : 'text-green-400'));
-                const radius = 30;
-                const circumference = 2 * Math.PI * radius;
-                const overallOffset = isNaN(overallPercentage) ? circumference : circumference - (overallPercentage / 100) * circumference;
-                
-                const overallCard = document.createElement('div');
-                overallCard.className = "bg-white/5 border-2 border-indigo-500/50 p-4 rounded-xl flex flex-col items-center justify-center text-center";
-                overallCard.innerHTML = `
-                    <div class="relative w-20 h-20 mb-2">
-                        <svg class="w-full h-full" viewBox="0 0 80 80">
-                            <circle class="text-white/10" stroke-width="8" stroke="currentColor" fill="transparent" r="${radius}" cx="40" cy="40" />
-                            <circle class="${overallColor} transition-all duration-500" stroke-width="8" stroke-dasharray="${circumference}" stroke-dashoffset="${overallOffset}" stroke-linecap="round" stroke="currentColor" fill="transparent" r="${radius}" cx="40" cy="40" transform="rotate(-90 40 40)"/>
-                        </svg>
-                        <span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-bold text-lg ${overallColor}">${isNaN(overallPercentage) ? '--' : overallPercentage.toFixed(2) + '%'}</span>
-                    </div>
-                    <p class="text-sm font-medium h-5 leading-tight">Overall</p>
-                    <p class="text-xs text-white/60">${stats.totalAttended} / ${stats.totalClasses}</p>`;
+                const overallCard = createCard("Overall", stats.overallAttendance, stats.totalAttended, stats.totalClasses, true);
                 container.appendChild(overallCard);
 
-                // Render individual subject cards
+                // Create individual subject cards
                 this.subjects.forEach((subject, index) => {
                     const data = this.getSubjectData(index);
-                    const { attended, total } = data;
-                    let percentage = (attended != null && total != null && total > 0) ? (attended / total) * 100 : NaN;
-                    let colorClass = isNaN(percentage) ? 'text-gray-400' : (percentage < 75 ? 'text-red-400' : (percentage < 85 ? 'text-yellow-400' : 'text-green-400'));
-                    const offset = isNaN(percentage) ? circumference : circumference - (percentage / 100) * circumference;
-                    
-                    const card = document.createElement('div');
-                    card.className = "bg-white/10 p-4 rounded-xl flex flex-col items-center justify-center text-center";
-                    card.innerHTML = `
-                        <div class="relative w-20 h-20 mb-2">
-                            <svg class="w-full h-full" viewBox="0 0 80 80">
-                                <circle class="text-white/10" stroke-width="8" stroke="currentColor" fill="transparent" r="${radius}" cx="40" cy="40" />
-                                <circle class="${colorClass} transition-all duration-500" stroke-width="8" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round" stroke="currentColor" fill="transparent" r="${radius}" cx="40" cy="40" transform="rotate(-90 40 40)"/>
-                            </svg>
-                            <span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-bold text-lg ${colorClass}">${isNaN(percentage) ? '--' : percentage.toFixed(2) + '%'}</span>
-                        </div>
-                        <p class="text-sm font-medium h-5 leading-tight">${subject}</p>
-                        <p class="text-xs text-white/60">${attended || 0} / ${total || 0}</p>`;
-                    container.appendChild(card);
+                    const percentage = (data.total > 0) ? (data.attended / data.total) * 100 : NaN;
+                    const subjectCard = createCard(subject, percentage, data.attended || 0, data.total || 0);
+                    container.appendChild(subjectCard);
                 });
             },
             setSortMode(mode) {
@@ -1104,7 +1106,7 @@
                         3.  Provide one, direct recommendation in the specified format below.
 
                         Output Format:
-                        - If safe, state ONLY: "Safe to bunk on [Day, Date]. This creates a [X]-day long weekend."
+                        - If safe, state ONLY: "Safe to bunk on [Day, Date]. This will create a [X]-day long weekend."
                         - If not safe, state ONLY: "Not safe to bunk on [Day, Date]. You must attend [Number] more class(es) of [Subject Name] first."
                         - If no opportunities exist, state ONLY: "No strategic bunk opportunities found in the next 3 months."
                     `;
