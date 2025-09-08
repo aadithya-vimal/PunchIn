@@ -126,6 +126,10 @@
             background-color: #111827;
             color: white;
         }
+        button:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
     </style>
 </head>
 <body class="gradient-bg min-h-screen text-white flex flex-col">
@@ -295,15 +299,13 @@
                 const data = this.getSubjectData(index);
                 const parsedValue = parseFloat(value);
                 
-                // Only update if it's a valid number or an empty string
                 if (!isNaN(parsedValue)) {
                     data[field] = parsedValue;
                 } else if (value === '') {
                     data[field] = 0;
                 }
-                // If input is invalid (e.g., "abc"), do nothing, keeping the old value.
-                // We also need to update the input field itself to reflect the actual state
-                e.target.value = data[field];
+                
+                e.target.value = data[field] || 0;
 
                 this.saveData();
                 document.getElementById('resultsContainer').classList.add('hidden');
@@ -403,9 +405,9 @@
                             <div class="bg-white/5 backdrop-blur-lg p-6 rounded-xl border border-white/10 shadow-xl">
                                 <h3 class="text-xl font-bold mb-4">${this.subjects[index]}</h3>
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div><label class="block mb-2 text-sm">Classes Attended</label><input type="number" min="0" data-index="${index}" data-field="attended" value="${data.attended || 0}" oninput="window.appState.updateSubjectDataFromInput(event)" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2" placeholder="e.g. 15"></div>
-                                    <div><label class="block mb-2 text-sm">Total Classes Held</label><input type="number" min="0" data-index="${index}" data-field="total" value="${data.total || 0}" oninput="window.appState.updateSubjectDataFromInput(event)" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2" placeholder="e.g. 20"></div>
-                                    <div><label class="block mb-2 text-sm">Required %</label><input type="number" min="1" max="99" data-index="${index}" data-field="requiredPerc" value="${data.requiredPerc || 75}" oninput="window.appState.updateSubjectDataFromInput(event)" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2" placeholder="e.g. 75"></div>
+                                    <div><label class="block mb-2 text-sm">Classes Attended</label><input type="number" min="0" data-index="${index}" data-field="attended" value="${data.attended || 0}" onchange="window.appState.updateSubjectDataFromInput(event)" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2" placeholder="e.g. 15"></div>
+                                    <div><label class="block mb-2 text-sm">Total Classes Held</label><input type="number" min="0" data-index="${index}" data-field="total" value="${data.total || 0}" onchange="window.appState.updateSubjectDataFromInput(event)" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2" placeholder="e.g. 20"></div>
+                                    <div><label class="block mb-2 text-sm">Required %</label><input type="number" min="1" max="99" data-index="${index}" data-field="requiredPerc" value="${data.requiredPerc || 75}" onchange="window.appState.updateSubjectDataFromInput(event)" class="w-full bg-white/20 border border-white/30 rounded-lg px-4 py-2" placeholder="e.g. 75"></div>
                                 </div>
                             </div>
                         `}).join('')}
@@ -554,15 +556,12 @@
                 
                 const newAttendanceData = {};
                 newSubjects.forEach((newSubject, newIndex) => {
-                    // If subject existed before, keep its data. Otherwise, initialize it.
                     newAttendanceData[newIndex] = oldDataMap.get(newSubject) || { attended: 0, total: 0, requiredPerc: 75, dailyStatus: {} };
                 });
 
                 this.subjects = newSubjects;
                 this.selectedSubjects = [];
                 this.attendanceData = newAttendanceData;
-                // Note: Timetable data would also need a migration strategy if it's tied to old indices,
-                // but for simplicity, we focus on the main bug. A full solution would remap timetable indices too.
                 
                 this.renderAll(); 
                 this.saveData();
@@ -750,14 +749,13 @@
                 this.timetable = newTimetable;
                 this.saveData();
                 this.renderTimetableGlance();
-                this.renderDailyDashboard(); // Re-render dashboard in case today's schedule changed
+                this.renderDailyDashboard();
                 button.closest('.fixed').remove();
             },
-            // Helper function to get today's date in YYYY-MM-DD format based on local timezone
             getTodayDateString() {
                 const today = new Date();
                 const year = today.getFullYear();
-                const month = String(today.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+                const month = String(today.getMonth() + 1).padStart(2, '0');
                 const day = String(today.getDate()).padStart(2, '0');
                 return `${year}-${month}-${day}`;
             },
@@ -786,7 +784,7 @@
                 let contentHTML = '<div class="space-y-3">';
                 Object.entries(periods).sort(([p1], [p2]) => p1 - p2).forEach(([period, subjectIndex]) => {
                     const subjectName = this.subjects[subjectIndex];
-                    if (!subjectName) return; // Skip if subject was deleted but timetable wasn't updated
+                    if (!subjectName) return;
                     const data = this.getSubjectData(subjectIndex);
                     const status = data.dailyStatus[todayDate] ? data.dailyStatus[todayDate][period] : null;
 
@@ -826,7 +824,7 @@
                     data.dailyStatus[todayDate] = {};
                 }
                 
-                if (data.dailyStatus[todayDate][period]) return; // Already marked
+                if (data.dailyStatus[todayDate][period]) return;
 
                 if (status === 'attended') {
                     data.attended = (data.attended || 0) + 1;
@@ -841,7 +839,7 @@
                 this.renderDailyDashboard();
                 this.renderAttendanceOverview();
                 this.renderInputForm();
-                document.getElementById('resultsContainer').classList.add('hidden'); // Hide old results
+                document.getElementById('resultsContainer').classList.add('hidden');
             },
             undoPunchIn(subjectIndex, period, lastStatus) {
                 const data = this.getSubjectData(subjectIndex);
@@ -862,11 +860,11 @@
                 this.renderDailyDashboard();
                 this.renderAttendanceOverview();
                 this.renderInputForm();
-                document.getElementById('resultsContainer').classList.add('hidden'); // Hide old results
+                document.getElementById('resultsContainer').classList.add('hidden');
             },
             async callGeminiAPI(payload, loadingDiv, resultDiv) {
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 30000); // 30-second timeout
+                const timeoutId = setTimeout(() => controller.abort(), 30000);
 
                 try {
                     const apiKey = window.firebaseConfig.apiKey;
@@ -876,7 +874,7 @@
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload),
-                        signal: controller.signal // Link the abort controller
+                        signal: controller.signal
                     });
 
                     clearTimeout(timeoutId);
@@ -890,7 +888,7 @@
                     const candidate = result.candidates?.[0];
 
                     if (candidate && candidate.content?.parts?.[0]?.text) {
-                        return candidate; // Success
+                        return candidate;
                     } else {
                         let errorMessage = "The AI returned an empty or invalid response.";
                         if (candidate?.finishReason === 'SAFETY' || result.promptFeedback?.blockReason === 'SAFETY') {
@@ -902,158 +900,156 @@
                 } catch (error) {
                     clearTimeout(timeoutId);
                     if (error.name === 'AbortError') {
-                        resultDiv.textContent = "The AI request timed out. Please check your internet connection and try again.";
+                        resultDiv.textContent = "The AI request timed out. This can happen with a slow network or a very large number of subjects. Please try again.";
                     } else {
                         console.error("Error calling Gemini API:", error);
                         resultDiv.textContent = `An error occurred: ${error.message}`;
                     }
-                    return null; // Failure
+                    return null;
                 }
             },
             async getAIRecommendation() {
+                const button = document.querySelector('#ai-assistant button');
+                const originalButtonText = button.innerHTML;
+                button.disabled = true;
+                button.innerHTML = `<i class="fas fa-spinner fa-spin mr-3"></i> Finding...`;
+
                 const recommendationDiv = document.getElementById('ai-recommendation');
-                const sourcesDiv = document.getElementById('ai-sources');
-                recommendationDiv.innerHTML = `<div class="flex items-center justify-center"><i class="fas fa-spinner fa-spin text-2xl mr-3"></i> Analyzing your schedule and searching for holidays...</div>`;
-                sourcesDiv.innerHTML = '';
+                recommendationDiv.innerHTML = `<div class="flex items-center justify-center"><i class="fas fa-spinner fa-spin text-2xl mr-3"></i> Analyzing your schedule... This may take a moment.</div>`;
 
-                if (this.subjects.length === 0 || Object.keys(this.timetable).length === 0) {
-                     recommendationDiv.innerHTML = "Please add your subjects and set your weekly timetable first before asking for a recommendation.";
-                     return;
-                }
-
-                const attendanceStatus = this.subjects.map((subject, index) => {
-                    const data = this.getSubjectData(index);
-                    const percentage = (data.attended && data.total) ? ((data.attended / data.total) * 100).toFixed(1) : 'N/A';
-                    return `- ${subject}: ${percentage}% (Required: ${data.requiredPerc}%)`;
-                }).join('\n');
-
-                const timetableString = Object.entries(this.timetable).map(([day, periods]) => {
-                    if (Object.keys(periods).length === 0) return null;
-                    const periodDetails = Object.entries(periods).map(([period, subjectIndex]) => `Period ${period}: ${this.subjects[subjectIndex]}`).join(', ');
-                    return `- ${day.charAt(0).toUpperCase() + day.slice(1)}: ${periodDetails}`;
-                }).filter(Boolean).join('\n');
-
-                const systemPrompt = "You are an expert academic advisor for a student in Bengaluru, Karnataka, India. Your goal is to find the most strategic days for the student to miss class (bunk) to get a long weekend. Be concise, friendly, and provide actionable advice. Base your holiday information on real-time search results for the user's location.";
-                const userQuery = `
-                    My current location is Bengaluru, Karnataka, India. My current date is ${new Date().toLocaleDateString('en-CA')}.
-                    Here is my current attendance status, including the required percentage for each subject:
-                    ${attendanceStatus}
-
-                    Here is my weekly timetable (showing subject per period):
-                    ${timetableString}
-
-                    First, find public holidays in Bengaluru, Karnataka, India for the next 3 months.
-                    Then, analyze my timetable and attendance. Identify any Fridays or Mondays that are working days but are next to a public holiday or weekend, creating a potential 3-day or longer weekend. 
-
-                    For each of these strategic days, tell me:
-                    1. If I can afford to bunk all the classes on that day right now without any subject dropping below its required percentage.
-                    2. If not, tell me exactly how many classes of which specific subjects I need to attend consecutively to 'earn' that day off.
-                    
-                    Present the best and most immediate option first. If no such opportunities exist, tell me that and wish me luck with my studies.
-                    Format your response clearly using paragraphs and bullet points.
-                `;
-
-                const payload = {
-                    contents: [{ parts: [{ text: userQuery }] }],
-                    tools: [{ "google_search": {} }],
-                    systemInstruction: { parts: [{ text: systemPrompt }] },
-                };
-
-                const candidate = await this.callGeminiAPI(payload, recommendationDiv, recommendationDiv);
-
-                if (candidate) {
-                    const formattedText = marked.parse(candidate.content.parts[0].text); 
-                    recommendationDiv.innerHTML = `<div class="ai-recommendation-content">${formattedText}</div>`;
-
-                    const groundingMetadata = candidate.groundingMetadata;
-                    if (groundingMetadata && groundingMetadata.groundingAttributions) {
-                        const sources = groundingMetadata.groundingAttributions
-                            .map(attr => attr.web?.uri && `<a href="${attr.web.uri}" target="_blank" class="hover:underline">${attr.web.title}</a>`)
-                            .filter(Boolean);
-                        if (sources.length > 0) {
-                            sourcesDiv.innerHTML = `Holiday data based on: ${sources.join(', ')}`;
-                        }
+                try {
+                    if (this.subjects.length === 0 || Object.keys(this.timetable).length === 0) {
+                        recommendationDiv.innerHTML = "Please add your subjects and set your weekly timetable first before asking for a recommendation.";
+                        return;
                     }
+
+                    let atRiskSubjects = [];
+                    let safeSubjectsCount = 0;
+                    this.subjects.forEach((subject, index) => {
+                        const data = this.getSubjectData(index);
+                        const percentage = (data.attended && data.total) ? ((data.attended / data.total) * 100) : 100;
+                        if (percentage < 85) {
+                            atRiskSubjects.push(`- ${subject}: ${percentage.toFixed(1)}% (Required: ${data.requiredPerc}%)`);
+                        } else {
+                            safeSubjectsCount++;
+                        }
+                    });
+
+                    let attendanceSummary;
+                    if (atRiskSubjects.length > 0) {
+                        attendanceSummary = `I have ${this.subjects.length} subjects. ${safeSubjectsCount} are safe. The following subjects are at risk of low attendance:\n${atRiskSubjects.join('\n')}`;
+                    } else {
+                        attendanceSummary = `All ${this.subjects.length} of my subjects have a safe attendance percentage (above 85%).`;
+                    }
+
+                    const timetableString = Object.entries(this.timetable).map(([day, periods]) => {
+                        if (Object.keys(periods).length === 0) return null;
+                        const periodDetails = Object.entries(periods).map(([period, subjectIndex]) => `Period ${period}: ${this.subjects[subjectIndex]}`).join(', ');
+                        return `- ${day.charAt(0).toUpperCase() + day.slice(1)}: ${periodDetails}`;
+                    }).filter(Boolean).join('\n');
+
+                    const systemPrompt = "You are an expert academic advisor for a student in Bengaluru, Karnataka, India. Your goal is to find strategic days to miss class (bunk) for a long weekend. Be concise and provide actionable advice based ONLY on the data provided and your internal knowledge of major public holidays.";
+                    
+                    const userQuery = `
+                        My current location is Bengaluru, Karnataka, India.
+                        Here is a summary of my current attendance status:
+                        ${attendanceSummary}
+
+                        Here is my weekly timetable:
+                        ${timetableString}
+
+                        Based on my at-risk subjects and timetable, identify opportunities for a long weekend by bunking on a Monday or Friday adjacent to a weekend or a major public holiday in the next 3 months. For each opportunity, tell me if it's safe to bunk, considering only the at-risk subjects. If it's not safe, tell me what I need to do to make it safe. If all my subjects are safe, give me advice on maintaining my good standing. Format your response clearly.
+                    `;
+
+                    const payload = { contents: [{ parts: [{ text: userQuery }] }] };
+                    const candidate = await this.callGeminiAPI(payload, recommendationDiv, recommendationDiv);
+
+                    if (candidate) {
+                        const formattedText = marked.parse(candidate.content.parts[0].text);
+                        recommendationDiv.innerHTML = `<div class="ai-recommendation-content">${formattedText}</div>`;
+                    }
+                } finally {
+                    button.disabled = false;
+                    button.innerHTML = originalButtonText;
                 }
             },
             async getAIResultInsights() {
+                const button = document.querySelector('#ai-insights-container button');
+                if (!button) return;
+                const originalButtonText = button.innerHTML;
+                button.disabled = true;
+                button.innerHTML = `<i class="fas fa-spinner fa-spin mr-3"></i> Generating...`;
+
                 const insightsDiv = document.getElementById('ai-insights-content');
                 if (!this.lastCalculationResults || !this.lastCalculationResults.text) return;
 
-                insightsDiv.innerHTML = `<div class="flex items-center justify-center"><i class="fas fa-spinner fa-spin text-2xl mr-3"></i> Generating insights based on your results...</div>`;
-                
-                const timetableString = Object.entries(this.timetable).map(([day, periods]) => {
-                    if (Object.keys(periods).length === 0) return null;
-                    const periodDetails = Object.entries(periods).map(([period, subjectIndex]) => `Period ${period}: ${this.subjects[subjectIndex]}`).join(', ');
-                    return `- ${day.charAt(0).toUpperCase() + day.slice(1)}: ${periodDetails}`;
-                }).filter(Boolean).join('\n');
+                try {
+                    const timetableString = Object.entries(this.timetable).map(([day, periods]) => {
+                        if (Object.keys(periods).length === 0) return null;
+                        const periodDetails = Object.entries(periods).map(([period, subjectIndex]) => `Period ${period}: ${this.subjects[subjectIndex]}`).join(', ');
+                        return `- ${day.charAt(0).toUpperCase() + day.slice(1)}: ${periodDetails}`;
+                    }).filter(Boolean).join('\n');
 
-                const systemPrompt = "You are an expert academic advisor. Based on the student's calculation results and their timetable, provide a brief, actionable mini-plan or advice. Be encouraging and focus on a realistic next step. Include a predictive element.";
-                
-                let userQuery;
-                if (this.lastCalculationResults.type === 'attend') {
-                    userQuery = `
-                        Here are the results of my attendance calculation. I need to attend more classes:
-                        ${this.lastCalculationResults.text}
-                        Here is my weekly timetable:
-                        ${timetableString || "No timetable set."}
-                        Based on this, give me a short (2-3 sentences) piece of actionable advice. Suggest which days I should focus on attending all my classes to catch up quickly. Also, give me a predictive outlook: if I follow this advice for a week, what might my attendance percentage look like?`;
-                } else {
-                    userQuery = `
-                        Here are the results of my attendance calculation. I have classes I can afford to bunk:
-                        ${this.lastCalculationResults.text}
-                        Here is my weekly timetable:
-                        ${timetableString || "No timetable set."}
-                        Based on this, give me a short (2-3 sentences) piece of actionable advice. Suggest how I could productively use the free time from bunking classes. Also, provide a predictive warning: if I bunk the classes you suggest, what will my new attendance be, and how many classes will I be from the danger zone?`;
-                }
+                    const systemPrompt = "You are an expert academic advisor. Based on the student's calculation results and their timetable, provide a brief, actionable mini-plan or advice. Be encouraging and focus on a realistic next step. Include a predictive element.";
+                    
+                    let userQuery;
+                    if (this.lastCalculationResults.type === 'attend') {
+                        userQuery = `Here are the results of my attendance calculation: ${this.lastCalculationResults.text}\nMy weekly timetable is:\n${timetableString || "Not set."}\nBased on this, give me a short (2-3 sentences) actionable advice. Suggest which days to focus on to catch up. Predict what my attendance might look like in a week if I follow the advice.`;
+                    } else {
+                        userQuery = `Here are the results of my attendance calculation: ${this.lastCalculationResults.text}\nMy weekly timetable is:\n${timetableString || "Not set."}\nBased on this, give me a short (2-3 sentences) actionable advice. Suggest how to productively use the free time. Warn me what my new attendance will be and how close to the danger zone I'll be if I bunk the suggested classes.`;
+                    }
 
-                const payload = { contents: [{ parts: [{ text: userQuery }] }] };
-                const candidate = await this.callGeminiAPI(payload, insightsDiv, insightsDiv);
+                    const payload = { contents: [{ parts: [{ text: userQuery }] }] };
+                    const candidate = await this.callGeminiAPI(payload, insightsDiv, insightsDiv);
 
-                if (candidate) {
-                    insightsDiv.innerHTML = `<div class="ai-recommendation-content">${marked.parse(candidate.content.parts[0].text)}</div>`;
+                    if (candidate) {
+                        insightsDiv.innerHTML = `<div class="ai-recommendation-content">${marked.parse(candidate.content.parts[0].text)}</div>`;
+                    }
+                } finally {
+                    button.disabled = false;
+                    button.innerHTML = originalButtonText;
                 }
             },
             async getStudyPlan() {
+                const button = document.querySelector('#ai-study-planner button');
+                const originalButtonText = button.innerHTML;
+                button.disabled = true;
+                button.innerHTML = `<i class="fas fa-spinner fa-spin mr-3"></i> Generating...`;
+
                 const recommendationDiv = document.getElementById('study-plan-recommendation');
                 const goalInput = document.getElementById('studyGoalInput');
                 const goal = goalInput.value.trim();
 
-                if (!goal) {
-                    recommendationDiv.textContent = "Please enter a study goal first.";
-                    return;
-                }
-                
-                recommendationDiv.innerHTML = `<div class="flex items-center justify-center"><i class="fas fa-spinner fa-spin text-2xl mr-3"></i> Generating your personalized study plan...</div>`;
+                try {
+                    if (!goal) {
+                        recommendationDiv.textContent = "Please enter a study goal first.";
+                        return;
+                    }
+                    
+                    recommendationDiv.innerHTML = `<div class="flex items-center justify-center"><i class="fas fa-spinner fa-spin text-2xl mr-3"></i> Generating your personalized study plan...</div>`;
 
-                const timetableString = Object.entries(this.timetable).map(([day, periods]) => {
-                    if (Object.keys(periods).length === 0) return null;
-                    const periodDetails = Object.entries(periods).map(([period, subjectIndex]) => `Period ${period}: ${this.subjects[subjectIndex]}`).join(', ');
-                    return `- ${day.charAt(0).toUpperCase() + day.slice(1)}: ${periodDetails}`;
-                }).filter(Boolean).join('\n');
-                
-                const subjectsList = this.subjects.join(', ');
+                    const timetableString = Object.entries(this.timetable).map(([day, periods]) => {
+                        if (Object.keys(periods).length === 0) return null;
+                        const periodDetails = Object.entries(periods).map(([period, subjectIndex]) => `Period ${period}: ${this.subjects[subjectIndex]}`).join(', ');
+                        return `- ${day.charAt(0).toUpperCase() + day.slice(1)}: ${periodDetails}`;
+                    }).filter(Boolean).join('\n');
+                    
+                    const subjectsList = this.subjects.join(', ');
 
-                const userQuery = `
-                    Here is my list of subjects: ${subjectsList || "No subjects listed."}
-                    Here is my weekly class schedule:
-                    ${timetableString || "No timetable set."}
-                    My study goal is: "${goal}"
-                    Please generate a structured study plan to help me achieve this goal. The plan should:
-                    1. Be broken down by day or week, depending on the goal's timeframe.
-                    2. Suggest which subjects to focus on each day.
-                    3. Allocate study time in the free slots available in my schedule (outside of my class hours).
-                    4. Be realistic and include time for breaks.
-                    Present the plan in a clear, easy-to-follow format using Markdown.`;
+                    const userQuery = `My subjects are: ${subjectsList}. My weekly class schedule is:\n${timetableString || "Not set."}\nMy study goal is: "${goal}". Generate a structured, realistic study plan. Break it down by day or week, suggesting subjects to focus on in my free time and including breaks. Present it clearly using Markdown.`;
+                    
+                    const payload = { contents: [{ parts: [{ text: userQuery }] }] };
+                    const candidate = await this.callGeminiAPI(payload, recommendationDiv, recommendationDiv);
 
-                const payload = { contents: [{ parts: [{ text: userQuery }] }] };
-                const candidate = await this.callGeminiAPI(payload, recommendationDiv, recommendationDiv);
-
-                if (candidate) {
-                    recommendationDiv.innerHTML = `<div class="ai-recommendation-content">${marked.parse(candidate.content.parts[0].text)}</div>`;
+                    if (candidate) {
+                        recommendationDiv.innerHTML = `<div class="ai-recommendation-content">${marked.parse(candidate.content.parts[0].text)}</div>`;
+                    }
+                } finally {
+                    button.disabled = false;
+                    button.innerHTML = originalButtonText;
                 }
             },
-             renderTopicSuggester() {
+            renderTopicSuggester() {
                 const select = document.getElementById('topic-suggester-select');
                 select.innerHTML = '<option value="">-- Select a Subject --</option>';
                 if (this.subjects && this.subjects.length > 0) {
@@ -1066,24 +1062,34 @@
                 }
             },
             async getTopicSuggestions() {
+                const button = document.querySelector('#ai-topic-suggester button');
+                const originalButtonText = button.innerHTML;
+                button.disabled = true;
+                button.innerHTML = `<i class="fas fa-spinner fa-spin mr-3"></i> Suggesting...`;
+
                 const select = document.getElementById('topic-suggester-select');
                 const subjectName = select.value;
                 const contentDiv = document.getElementById('topic-suggestion-content');
 
-                if (!subjectName) {
-                    contentDiv.textContent = "Please select a subject from the list first.";
-                    return;
-                }
-                
-                contentDiv.innerHTML = `<div class="flex items-center justify-center"><i class="fas fa-spinner fa-spin mr-2"></i> Generating key topics for ${subjectName}...</div>`;
+                try {
+                    if (!subjectName) {
+                        contentDiv.textContent = "Please select a subject from the list first.";
+                        return;
+                    }
+                    
+                    contentDiv.innerHTML = `<div class="flex items-center justify-center"><i class="fas fa-spinner fa-spin mr-2"></i> Generating key topics for ${subjectName}...</div>`;
 
-                const userQuery = `I am a college student studying '${subjectName}'. Suggest 5 key topics or concepts I should focus on for my upcoming exams. Provide a brief, one-sentence description for each topic.`;
-                
-                const payload = { contents: [{ parts: [{ text: userQuery }] }] };
-                const candidate = await this.callGeminiAPI(payload, contentDiv, contentDiv);
+                    const userQuery = `I am a college student studying '${subjectName}'. Suggest 5 key topics or concepts I should focus on for my upcoming exams. Provide a brief, one-sentence description for each topic.`;
+                    
+                    const payload = { contents: [{ parts: [{ text: userQuery }] }] };
+                    const candidate = await this.callGeminiAPI(payload, contentDiv, contentDiv);
 
-                if (candidate) {
-                    contentDiv.innerHTML = `<div class="ai-recommendation-content">${marked.parse(candidate.content.parts[0].text)}</div>`;
+                    if (candidate) {
+                        contentDiv.innerHTML = `<div class="ai-recommendation-content">${marked.parse(candidate.content.parts[0].text)}</div>`;
+                    }
+                } finally {
+                    button.disabled = false;
+                    button.innerHTML = originalButtonText;
                 }
             },
             openProfileWindow() {
@@ -1194,7 +1200,7 @@
                     content += `</tbody></table></div>`;
                     container.innerHTML = content;
                 } else {
-                    container.innerHTML = ``; // Hide if no subjects exist
+                    container.innerHTML = ``;
                 }
             },
         };
