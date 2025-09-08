@@ -44,6 +44,8 @@
         let isFirstLoad = true;
         window.appState.currentUser = user; 
 
+        window.appState.startClock(); // Start the live clock
+
         onSnapshot(userDocRef, (docSnap) => {
             const oldSubjectsJSON = JSON.stringify(window.appState.subjects || []);
             let newSubjects = [], newAttendanceData = {}, newTimetable = {}, newProfile = {};
@@ -130,6 +132,25 @@
             cursor: not-allowed;
             opacity: 0.6;
         }
+        .sort-button {
+            background: none;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: rgba(255,255,255,0.6);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            transition: all 0.2s;
+        }
+        .sort-button:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        .sort-button.active {
+            background: #4f46e5;
+            border-color: #4f46e5;
+            color: white;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body class="gradient-bg min-h-screen text-white flex flex-col">
@@ -141,9 +162,11 @@
             <i class="fas fa-sign-out-alt"></i>
         </button>
     </div>
+    <div id="live-clock" class="fixed top-6 left-6 z-50 bg-black/20 backdrop-blur-sm px-4 py-2 rounded-lg text-white/80 font-mono text-sm shadow-lg"></div>
+
     <main class="flex-grow">
         <div class="container mx-auto px-4 py-8">
-            <header class="text-center mb-12">
+            <header class="text-center mb-12 pt-16">
                 <div class="inline-block mb-6">
                     <div class="bg-white/5 backdrop-blur-lg rounded-full p-4 shadow-lg glow">
                         <i class="fas fa-calendar-check text-5xl text-gradient"></i>
@@ -224,9 +247,15 @@
 
             <div class="flex flex-col lg:flex-row gap-8">
                 <div class="lg:w-1/4 bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg">
-                    <div class="flex justify-between items-center mb-6">
+                    <div class="flex justify-between items-center mb-2">
                         <h2 class="text-2xl font-bold">Your Subjects</h2>
                         <button onclick="window.appState.openEditWindow()" title="Edit Subjects" class="bg-indigo-500 hover:bg-indigo-600 text-white p-2 rounded-full transition-transform hover:scale-110"><i class="fas fa-edit"></i></button>
+                    </div>
+                    <div id="subject-sort-controls" class="flex items-center gap-2 mb-4 text-xs text-white/60">
+                        <span>Sort:</span>
+                        <button onclick="window.appState.setSortMode('name')" data-sort="name" class="sort-button active">A-Z</button>
+                        <button onclick="window.appState.setSortMode('desc')" data-sort="desc" class="sort-button">% ↓</button>
+                        <button onclick="window.appState.setSortMode('asc')" data-sort="asc" class="sort-button">% ↑</button>
                     </div>
                     <div class="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto pr-2" id="subjectsList"></div>
                 </div>
@@ -273,7 +302,9 @@
             selectedSubjects: [],
             userDocRef: null,
             auth: null,
-            lastCalculationResults: null, 
+            lastCalculationResults: null,
+            sortMode: 'name', // NEW: for subject sorting
+            clockInterval: null, // NEW: for clock
             async saveData() {
                 if (this.userDocRef) {
                     await setDoc(this.userDocRef, { 
@@ -367,18 +398,50 @@
                     container.appendChild(card);
                 });
             },
+            setSortMode(mode) {
+                this.sortMode = mode;
+                this.renderSubjectsList();
+            },
             renderSubjectsList() {
                 const container = document.getElementById('subjectsList');
                 container.innerHTML = '';
+
+                // Update sort button active states
+                document.querySelectorAll('#subject-sort-controls .sort-button').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.sort === this.sortMode);
+                });
+
                 if (!this.subjects || this.subjects.length === 0) {
                     container.innerHTML = `<div class="text-center py-8 text-white/60"><i class="fas fa-book-open text-3xl mb-3"></i><p>No subjects added yet!</p></div>`;
                     return;
                 }
-                this.subjects.forEach((subject, index) => {
+
+                // Create a sortable array
+                const subjectsWithData = this.subjects.map((name, index) => {
+                    const data = this.getSubjectData(index);
+                    const percentage = (data.total > 0) ? (data.attended / data.total) * 100 : -1; // Use -1 for sorting no-data subjects
+                    return { name, originalIndex: index, percentage };
+                });
+
+                // Sort the array based on the current sort mode
+                switch (this.sortMode) {
+                    case 'asc':
+                        subjectsWithData.sort((a, b) => a.percentage - b.percentage);
+                        break;
+                    case 'desc':
+                        subjectsWithData.sort((a, b) => b.percentage - a.percentage);
+                        break;
+                    case 'name':
+                    default:
+                        subjectsWithData.sort((a, b) => a.name.localeCompare(b.name));
+                        break;
+                }
+
+                subjectsWithData.forEach(subject => {
                     const div = document.createElement('div');
-                    div.className = `subject-selector p-3 rounded-lg cursor-pointer ${this.selectedSubjects.includes(index) ? 'selected' : ''}`;
-                    div.innerHTML = `<div class="flex items-center"><div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center mr-3 flex-shrink-0">${index + 1}</div><div class="truncate text-sm">${subject}</div></div>`;
-                    div.onclick = () => this.selectSubject(index);
+                    div.className = `subject-selector p-3 rounded-lg cursor-pointer ${this.selectedSubjects.includes(subject.originalIndex) ? 'selected' : ''}`;
+                    div.innerHTML = `<div class="flex items-center"><div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center mr-3 flex-shrink-0">${subject.percentage > -1 ? Math.floor(subject.percentage)+'%' : '-'}</div><div class="truncate text-sm">${subject.name}</div></div>`;
+                    div.onclick = () => this.selectSubject(subject.originalIndex);
                     container.appendChild(div);
                 });
             },
@@ -839,6 +902,7 @@
                 this.renderDailyDashboard();
                 this.renderAttendanceOverview();
                 this.renderInputForm();
+                this.renderSubjectsList();
                 document.getElementById('resultsContainer').classList.add('hidden');
             },
             undoPunchIn(subjectIndex, period, lastStatus) {
@@ -860,6 +924,7 @@
                 this.renderDailyDashboard();
                 this.renderAttendanceOverview();
                 this.renderInputForm();
+                this.renderSubjectsList();
                 document.getElementById('resultsContainer').classList.add('hidden');
             },
             async callGeminiAPI(payload, loadingDiv, resultDiv) {
@@ -948,17 +1013,27 @@
                         return `- ${day.charAt(0).toUpperCase() + day.slice(1)}: ${periodDetails}`;
                     }).filter(Boolean).join('\n');
 
-                    const systemPrompt = "You are an expert academic advisor for a student in Bengaluru, Karnataka, India. Your goal is to find strategic days to miss class (bunk) for a long weekend. Be concise and provide actionable advice based ONLY on the data provided and your internal knowledge of major public holidays.";
+                    const systemPrompt = "You are a definitive academic advisor. Your task is to analyze student data and provide a direct, actionable recommendation. Do not provide steps on how to calculate. Give a direct answer.";
                     
                     const userQuery = `
-                        My current location is Bengaluru, Karnataka, India.
-                        Here is a summary of my current attendance status:
-                        ${attendanceSummary}
-
-                        Here is my weekly timetable:
-                        ${timetableString}
-
-                        Based on my at-risk subjects and timetable, identify opportunities for a long weekend by bunking on a Monday or Friday adjacent to a weekend or a major public holiday in the next 3 months. For each opportunity, tell me if it's safe to bunk, considering only the at-risk subjects. If it's not safe, tell me what I need to do to make it safe. If all my subjects are safe, give me advice on maintaining my good standing. Format your response clearly.
+                        Based on the following data for a student in Bengaluru, India, your task is to output the single best day to bunk class to create a long weekend in the next 3 months.
+                        
+                        Data:
+                        1.  **Attendance Summary:**
+                            ${attendanceSummary}
+                        2.  **Weekly Timetable:**
+                            ${timetableString}
+                        
+                        Instructions:
+                        1.  Use your knowledge of major Indian public holidays.
+                        2.  Find a Monday or Friday that is adjacent to a weekend or one of these holidays.
+                        3.  Analyze the 'at-risk' subjects scheduled on that day.
+                        4.  Provide a single, direct recommendation.
+                        
+                        Output Format:
+                        - If it is safe, state ONLY: "Safe to bunk on [Day, Date]. This will create a [X]-day long weekend."
+                        - If it is not safe, state ONLY: "Not safe to bunk. You must attend [Number] more class(es) of [Subject Name] first."
+                        - If no opportunities exist, state ONLY: "No strategic bunk opportunities found in the next 3 months."
                     `;
 
                     const payload = { contents: [{ parts: [{ text: userQuery }] }] };
@@ -1203,6 +1278,18 @@
                     container.innerHTML = ``;
                 }
             },
+            startClock() {
+                if (this.clockInterval) clearInterval(this.clockInterval);
+                const clockDiv = document.getElementById('live-clock');
+                const updateClock = () => {
+                    const now = new Date();
+                    const dateOptions = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
+                    const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+                    clockDiv.textContent = `${now.toLocaleDateString(undefined, dateOptions)} | ${now.toLocaleTimeString(undefined, timeOptions)}`;
+                };
+                updateClock();
+                this.clockInterval = setInterval(updateClock, 1000);
+            }
         };
     </script>
 </body>
