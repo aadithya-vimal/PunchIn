@@ -1,0 +1,25 @@
+name: Deploy Supabase Schema
+
+on:
+  push:
+    paths:
+      - 'supabase/migrations/**'
+
+jobs:
+  deploy-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link Supabase Project
+        run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+
+      - name: Deploy Database Migrations
+        run: supabase db push --password ${{ secrets.SUPABASE_DB_PASSWORD }}
+
