@@ -18,13 +18,35 @@ function getBadges(memberStats) {
 
 const PodBadgesLeaderboard = () => {
   const { podMembers, podData } = useContext(PodContext);
-  const { currentUser } = useContext(UserContext);
+  const { currentUser, attendanceData, subjects, getProfileStats } = useContext(UserContext);
 
-  // Dummy stats for demo; replace with real stats
+  // Helper to calculate overall attendance for a user
+  const calculateOverallAttendance = (memberUid) => {
+    // If current user, use local attendanceData
+    if (memberUid === currentUser?.uid) {
+      const stats = getProfileStats();
+      return stats.overallAttendance === '--' ? 0 : Number(stats.overallAttendance);
+    }
+    // For other members, attendanceData is not available locally, so use podMember.attendanceData if present
+    const member = podMembers.find(m => m.uid === memberUid);
+    if (member && member.attendanceData) {
+      let totalAttended = 0;
+      let totalClasses = 0;
+      Object.values(member.attendanceData).forEach(data => {
+        totalAttended += Number(data.attended) || 0;
+        totalClasses += Number(data.total) || 0;
+      });
+      return totalClasses > 0 ? ((totalAttended / totalClasses) * 100).toFixed(2) : 0;
+    }
+    // If not available, show 0
+    return 0;
+  };
+
+  // Engagement and isLeader logic (can be improved if engagement data is available)
   const getStats = (uid) => {
     return {
-      attendance: Math.floor(Math.random() * 30) + 70, // 70-100%
-      engagement: Math.floor(Math.random() * 10), // 0-10 actions
+      attendance: calculateOverallAttendance(uid),
+      engagement: 0, // Placeholder, replace with real engagement if available
       isLeader: podData?.members?.[0] === uid,
     };
   };
