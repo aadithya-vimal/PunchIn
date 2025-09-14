@@ -3,6 +3,18 @@ import { PodContext } from './PodContext';
 import { UserContext } from '../context/UserContext';
 
 const PodMemberList = ({ onSelectMember, onCopyMemberData }) => {
+  const [copyStatus, setCopyStatus] = useState('');
+
+  const handleCopy = async (uid) => {
+    try {
+      await navigator.clipboard.writeText(uid);
+      setCopyStatus('Copied!');
+      setTimeout(() => setCopyStatus(''), 1200);
+    } catch (e) {
+      setCopyStatus('Failed to copy');
+      setTimeout(() => setCopyStatus(''), 1200);
+    }
+  };
   const { podMembers, podData, getMemberData, getMemberDisplayName } = useContext(PodContext);
   const { currentUser } = useContext(UserContext);
   const [loading, setLoading] = useState(false);
@@ -36,6 +48,7 @@ const PodMemberList = ({ onSelectMember, onCopyMemberData }) => {
                   title="Copy User ID"
                   className="bg-gray-700 hover:bg-gray-900 text-white px-2 py-1 rounded text-xs"
                 >Copy</button>
+                {copyStatus && <span className="text-green-400 text-xs ml-2">{copyStatus}</span>}
                 <button
                   onClick={async () => {
                     setLoading(true);
