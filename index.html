@@ -877,11 +877,15 @@
                         newTimetable[day][period] = subjectIndex;
                     }
                 });
-                this.timetable = newTimetable;
-                this.saveData();
-                this.renderTimetableGlance();
-                this.renderDailyDashboard();
-                button.closest('.fixed').remove();
+                                this.timetable = newTimetable;
+                                this.saveData();
+                                this.renderTimetableGlance();
+                                this.renderDailyDashboard();
+                                // Always remove the last .fixed modal after saving
+                                const modals = document.querySelectorAll('.fixed');
+                                if (modals.length > 0) {
+                                  modals[modals.length - 1].remove();
+                                }
             },
             getTodayDateString() {
                 const today = new Date();
@@ -1168,9 +1172,9 @@
                     
                     let userQuery;
                     if (this.lastCalculationResults.type === 'attend') {
-                        userQuery = `My attendance calculation: ${this.lastCalculationResults.text}\nMy timetable:\n${timetableString || "Not set."}\nGive me a short (2-3 sentences) actionable advice. Suggest which days to focus on to catch up. Predict my attendance in a week if I follow the advice.`;
+                        userQuery = `My attendance calculation: ${this.lastCalculationResults.text}\nMy timetable:\n${timetableString || "Not set."}\nCurrent attendance numbers: ${this.getProfileStats().overallAttendance}%\nSubjects at risk: ${this.subjects.filter((_,i)=>{const d=this.attendanceData[i];return d && d.total>0 && ((d.attended/d.total)*100)<75;}).join(', ') || 'None'}\n\nAs an expert academic advisor, give me a detailed, step-by-step plan for the next 7 days. Specify which subjects and days I should focus on, how many classes to attend, and predict my attendance percentage if I follow your advice. Include warnings for at-risk subjects and suggest concrete actions.\n\nFormat your answer as a numbered list. Example:\n1. Monday: Attend Data Structures (2 classes)\n2. Tuesday: Attend IPR (1 class)\n...\nPredicted attendance: 78.3%\nWarnings: Data Structures is at risk, attend all classes this week.`;
                     } else {
-                        userQuery = `My attendance calculation: ${this.lastCalculationResults.text}\nMy timetable:\n${timetableString || "Not set."}\nGive me a short (2-3 sentences) actionable advice. Suggest how to use the free time. Warn me about my new attendance percentage if I bunk.`;
+                        userQuery = `My attendance calculation: ${this.lastCalculationResults.text}\nMy timetable:\n${timetableString || "Not set."}\nCurrent attendance numbers: ${this.getProfileStats().overallAttendance}%\nSubjects at risk: ${this.subjects.filter((_,i)=>{const d=this.attendanceData[i];return d && d.total>0 && ((d.attended/d.total)*100)<75;}).join(', ') || 'None'}\n\nAs an expert academic advisor, analyze my attendance and timetable. Give me a specific, actionable plan for bunking classes safely. List which days and subjects I can bunk, how many classes I can miss, and predict my new attendance percentage. Warn me about any risks and suggest how to use my free time productively.\n\nFormat your answer as a numbered list. Example:\n1. Wednesday: You can bunk Data Structures (1 class)\n2. Friday: You can bunk IPR (1 class)\n...\nPredicted attendance: 76.5%\nWarnings: Do not bunk Data Structures on Monday. Use free time for revision.`;
                     }
 
                     const payload = { contents: [{ parts: [{ text: userQuery }] }] };
