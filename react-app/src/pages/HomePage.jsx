@@ -55,6 +55,7 @@ const HomePage = () => {
     const { currentUser, profile, logout, activeModal, setActiveModal } = useContext(UserContext);
 
     const [podsOpen, setPodsOpen] = useState(false);
+    const [infoOpen, setInfoOpen] = useState(false);
     return (
         <div className="gradient-bg min-h-screen text-white flex flex-col">
             {activeModal === 'profile' && <ProfileModal />}
@@ -62,10 +63,47 @@ const HomePage = () => {
             {activeModal === 'timetable' && <TimetableModal />}
 
             <div className="fixed top-6 right-6 z-50 flex items-center gap-3">
+                <button onClick={() => setInfoOpen(true)} title="App Info & Help" className="bg-indigo-500 hover:bg-indigo-700 text-white w-12 h-12 flex items-center justify-center rounded-full text-2xl font-bold shadow-lg border-2 border-white/20"><i className="fas fa-question"></i></button>
                 <button onClick={() => setPodsOpen(true)} title="Pods" className="bg-indigo-500 hover:bg-indigo-600 text-white p-3 rounded-full"><i className="fas fa-users"></i></button>
                 <button onClick={() => setActiveModal('profile')} title="Profile & Settings" className="bg-gray-500 hover:bg-gray-600 text-white p-3 rounded-full"><i className="fas fa-user-cog"></i></button>
                 <button onClick={logout} title="Logout" className="bg-red-500 hover:bg-red-600 text-white p-3 rounded-full"><i className="fas fa-sign-out-alt"></i></button>
             </div>
+
+            <DateTime />
+
+            {/* Info Modal */}
+            {infoOpen && (
+                <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center">
+                    <div className="bg-gradient-to-br from-indigo-950 via-indigo-900 to-indigo-800 text-white rounded-xl shadow-2xl p-8 max-w-3xl w-full relative overflow-y-auto border-2 border-indigo-700" style={{maxHeight: '90vh'}}>
+                        <button onClick={() => setInfoOpen(false)} className="absolute top-4 right-4 text-xl bg-gray-800 hover:bg-gray-600 text-white rounded-full px-3 py-1">&times;</button>
+                        <h2 className="text-3xl font-bold mb-4 text-gradient">Punch.In App Guide & Help</h2>
+                        <ul className="list-disc ml-6 space-y-3 text-lg">
+                            <li><strong>Pods:</strong> Create or join collaborative groups to share attendance, timetable, and subjects. Admins can add/remove members. Use the <span className="font-semibold text-indigo-400">Pods</span> button to access all pod features.</li>
+                            <li><strong>Pod Admin Controls:</strong> Admins can add or remove members, manage pod settings, and oversee group activities. Only the first member is admin.</li>
+                            <li><strong>Copy Timetable & Subjects:</strong> In the Pod Members list, use <span className="font-semibold text-indigo-400">Copy Data</span> to copy another member's timetable and subjects. <span className="text-yellow-300">Warning: This will overwrite your own data and reset attendance.</span></li>
+                            <li><strong>Copy Pod/User ID:</strong> Use the <span className="font-semibold text-gray-300">Copy</span> button next to pods or users to copy their IDs for sharing or adding members.</li>
+                            <li><strong>Delete Entire Data:</strong> In your profile window, use <span className="font-semibold text-red-400">Delete Timetable & Subject List</span> for a double-confirmed, irreversible deletion of your academic data.</li>
+                            <li><strong>Attendance Calculation:</strong> Attendance is calculated as <span className="font-mono">(Total Attended / Total Classes) × 100</span>. Your overall attendance is shown in your stats and leaderboard. Each subject tracks its own attendance.</li>
+                            <li><strong>Adding Attendance Data:</strong> Use <span className="font-semibold text-indigo-400">All Subjects Attendance</span> to enter class data and required attendance percentage for each subject. The app tracks and updates your attendance automatically.</li>
+                            <li><strong>Timetable Glance:</strong> View your weekly timetable at a glance, including all subjects and periods. Easily spot free slots and busy days.</li>
+                            <li><strong>Daily Dashboard:</strong> See your daily attendance, upcoming classes, and quick stats for the day.</li>
+                            <li><strong>AI Study Planner:</strong> Get personalized study plans based on your attendance, timetable, and academic goals.</li>
+                            <li><strong>AI Topic Suggester:</strong> Receive topic suggestions for revision and improvement, tailored to your weak areas.</li>
+                            <li><strong>Collaborative Bunk Planner:</strong> Select pod members to find the best day for a group bunk. The planner analyzes everyone's schedule and attendance to minimize academic risk. All names are shown for clarity.</li>
+                            <li><strong>Leaderboard & Badges:</strong> View all pod members' attendance and earn badges for high performance and engagement. Compete with friends for top spots.</li>
+                            <li><strong>Profile & Settings:</strong> Update your display name, view your email, and manage your academic data securely.</li>
+                            <li><strong>Privacy & Security:</strong> Your data is stored securely and is only accessible to you. Review our <Link to="/privacy" className="underline text-indigo-300">Privacy Policy</Link> for details.</li>
+                            <li><strong>Terms & Conditions:</strong> Understand how Punch.In works and your rights as a user. See <Link to="/terms" className="underline text-indigo-300">Terms</Link>.</li>
+                            <li><strong>Tooltips & Help:</strong> Hover over any button for instant help and explanations of features.</li>
+                            <li><strong>Mobile Friendly:</strong> The app is fully responsive and works great on phones, tablets, and desktops.</li>
+                            <li><strong>Fast & Secure:</strong> Built with modern technologies for speed, reliability, and security.</li>
+                            <li><strong>How to Get Started:</strong> Add your subjects, set up your timetable, and start tracking attendance. Join or create a pod to collaborate with friends.</li>
+                            <li><strong>Support:</strong> For issues or feedback, contact the developer via the GitHub repo or support email.</li>
+                        </ul>
+                        <div className="mt-6 text-indigo-200 text-base">For more help, hover over any button for tooltips, or visit the <Link to="/terms" className="underline">Terms</Link> and <Link to="/privacy" className="underline">Privacy Policy</Link> pages.</div>
+                    </div>
+                </div>
+            )}
 
             <DateTime />
 
