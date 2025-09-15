@@ -98,6 +98,20 @@ const HomePage = () => {
                                 <button onClick={() => setPodsOpen(false)} className="absolute top-4 right-4 text-xl bg-gray-800 hover:bg-gray-600 text-white rounded-full px-3 py-1">&times;</button>
                                 <PodProvider>
                                     <section>
+                                        {/* Info Section */}
+                                        <div className="mb-8 p-6 rounded-xl bg-white/5 border border-indigo-700 shadow-lg">
+                                            <h2 className="text-2xl font-bold mb-3 text-gradient">Pods: Collaborative Academic Groups</h2>
+                                            <ul className="list-disc ml-6 space-y-2 text-base">
+                                                <li><strong>What are Pods?</strong> Pods are collaborative groups where you and your friends can share attendance, timetable, and subjects for strategic planning and bunk coordination.</li>
+                                                <li><strong>How to Create a Pod:</strong> Enter a name and click <span className="font-semibold text-indigo-400">Create Pod</span>. You become the admin.</li>
+                                                <li><strong>How to Join a Pod:</strong> Enter the Pod ID shared by your friend and click <span className="font-semibold text-green-400">Join Pod</span>.</li>
+                                                <li><strong>Admin Status:</strong> The first member in a pod is the admin. Admins can add or remove members and manage the pod.</li>
+                                                <li><strong>How to Add Members:</strong> Admins can add members by entering their User ID. Members can also join using the Pod ID.</li>
+                                                <li><strong>Leaderboard & Badges:</strong> View all pod members' attendance and earn badges for high performance and engagement.</li>
+                                                <li><strong>Collaborative Bunk Planner:</strong> Select pod members to find the best day for a group bunk. The planner analyzes everyone's schedule and attendance to minimize academic risk. All names are shown for clarity.</li>
+                                            </ul>
+                                            <div className="mt-4 text-yellow-300 text-sm">Note: Copying subjects/timetable from another member will reset your attendance. This action is irreversible.</div>
+                                        </div>
                                         <PodManager />
                                         <PodCopyConnector />
                                         <PodBadgesLeaderboard />
