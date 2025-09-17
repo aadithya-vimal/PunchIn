@@ -74,11 +74,7 @@ const HomePage = () => {
         });
     }, [currentUser]);
 
-    useEffect(() => {
-        if (!currentUser) return;
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        setDoc(userDocRef, { notebooks }, { merge: true });
-    }, [notebooks, currentUser]);
+    // Remove Firestore sync useEffect for notebooks
     const [newNotebookName, setNewNotebookName] = useState("");
     const [noteInputs, setNoteInputs] = useState({});
     // Pods help modal state
@@ -88,11 +84,21 @@ const HomePage = () => {
     const handleCreateNotebook = (e) => {
         e.preventDefault();
         if (!newNotebookName.trim()) return;
-        setNotebooks([...notebooks, { id: Date.now(), name: newNotebookName.trim(), notes: [] }]);
+        const updated = [...notebooks, { id: Date.now(), name: newNotebookName.trim(), notes: [] }];
+        setNotebooks(updated);
+        if (currentUser) {
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            setDoc(userDocRef, { notebooks: updated }, { merge: true });
+        }
         setNewNotebookName("");
     };
     const handleDeleteNotebook = (id) => {
-        setNotebooks(notebooks.filter(nb => nb.id !== id));
+        const updated = notebooks.filter(nb => nb.id !== id);
+        setNotebooks(updated);
+        if (currentUser) {
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            setDoc(userDocRef, { notebooks: updated }, { merge: true });
+        }
         setNoteInputs(inputs => {
             const copy = { ...inputs };
             delete copy[id];
@@ -103,11 +109,21 @@ const HomePage = () => {
         e.preventDefault();
         const note = noteInputs[notebookId]?.trim();
         if (!note) return;
-        setNotebooks(notebooks.map(nb => nb.id === notebookId ? { ...nb, notes: [...nb.notes, note] } : nb));
+        const updated = notebooks.map(nb => nb.id === notebookId ? { ...nb, notes: [...nb.notes, note] } : nb);
+        setNotebooks(updated);
+        if (currentUser) {
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            setDoc(userDocRef, { notebooks: updated }, { merge: true });
+        }
         setNoteInputs(inputs => ({ ...inputs, [notebookId]: "" }));
     };
     const handleDeleteNote = (notebookId, noteIdx) => {
-        setNotebooks(notebooks.map(nb => nb.id === notebookId ? { ...nb, notes: nb.notes.filter((_, idx) => idx !== noteIdx) } : nb));
+        const updated = notebooks.map(nb => nb.id === notebookId ? { ...nb, notes: nb.notes.filter((_, idx) => idx !== noteIdx) } : nb);
+        setNotebooks(updated);
+        if (currentUser) {
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            setDoc(userDocRef, { notebooks: updated }, { merge: true });
+        }
     };
     return (
         <div className="gradient-bg min-h-screen text-white flex flex-col">
