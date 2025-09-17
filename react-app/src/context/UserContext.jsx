@@ -103,8 +103,8 @@ export const UserProvider = ({ children }) => {
       const todayDate = new Date().toISOString().slice(0, 10);
       const updated = { ...prev };
       const oldData = prev[subjectIndex] || { attended: 0, total: 0, requiredPerc: 75, dailyStatus: {} };
-      let attended = oldData.attended || 0;
-      let total = oldData.total || 0;
+  let attended = Number(oldData.attended) || 0;
+  let total = Number(oldData.total) || 0;
       // Deep clone dailyStatus
       const dailyStatus = JSON.parse(JSON.stringify(oldData.dailyStatus || {}));
       const day = dailyStatus[todayDate] ? { ...dailyStatus[todayDate] } : {};
@@ -141,8 +141,8 @@ export const UserProvider = ({ children }) => {
       const todayDate = new Date().toISOString().slice(0, 10);
       const updated = { ...prev };
       const oldData = prev[subjectIndex] || { attended: 0, total: 0, requiredPerc: 75, dailyStatus: {} };
-      let attended = oldData.attended || 0;
-      let total = oldData.total || 0;
+  let attended = Number(oldData.attended) || 0;
+  let total = Number(oldData.total) || 0;
       // Deep clone dailyStatus
       const dailyStatus = JSON.parse(JSON.stringify(oldData.dailyStatus || {}));
       const day = dailyStatus[todayDate] ? { ...dailyStatus[todayDate] } : {};
