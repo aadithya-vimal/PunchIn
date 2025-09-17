@@ -22,7 +22,7 @@ function PodCopyConnector() {
         </>
     );
 }
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { UserContext } from '../context/UserContext.jsx';
 import SubjectList from '../components/SubjectList.jsx';
@@ -46,7 +46,7 @@ import PodBadgesLeaderboard from '../pods/PodBadgesLeaderboard.jsx';
 import { PodGroupAIProvider, PodGroupAIContext } from '../pods/PodGroupAIContext.jsx';
 import PodBunkPlanner from '../pods/PodBunkPlanner.jsx';
 import { db } from '../firebase/config';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
 // PodBunkPlanner with context
 function PodBunkPlannerWithContext() {
@@ -66,12 +66,13 @@ const HomePage = () => {
     useEffect(() => {
         if (!currentUser) return;
         const userDocRef = doc(db, 'users', currentUser.uid);
-        getDoc(userDocRef).then(docSnap => {
+        const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 setNotebooks(data.notebooks || []);
             }
         });
+        return () => unsubscribe();
     }, [currentUser]);
 
     // Remove Firestore sync useEffect for notebooks
