@@ -45,6 +45,8 @@ import { PodProvider } from '../pods/PodContext.jsx';
 import PodBadgesLeaderboard from '../pods/PodBadgesLeaderboard.jsx';
 import { PodGroupAIProvider, PodGroupAIContext } from '../pods/PodGroupAIContext.jsx';
 import PodBunkPlanner from '../pods/PodBunkPlanner.jsx';
+import { db } from '../firebase/config';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 // PodBunkPlanner with context
 function PodBunkPlannerWithContext() {
@@ -60,6 +62,23 @@ const HomePage = () => {
     // Notes app state
     const [notesOpen, setNotesOpen] = useState(false);
     const [notebooks, setNotebooks] = useState([]);
+
+    useEffect(() => {
+        if (!currentUser) return;
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        getDoc(userDocRef).then(docSnap => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                setNotebooks(data.notebooks || []);
+            }
+        });
+    }, [currentUser]);
+
+    useEffect(() => {
+        if (!currentUser) return;
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        setDoc(userDocRef, { notebooks }, { merge: true });
+    }, [notebooks, currentUser]);
     const [newNotebookName, setNewNotebookName] = useState("");
     const [noteInputs, setNoteInputs] = useState({});
     // Pods help modal state
@@ -189,7 +208,7 @@ const HomePage = () => {
                                 <button onClick={() => setNotesOpen(false)} className="absolute top-4 right-4 text-xl bg-gray-200 hover:bg-yellow-200 text-gray-900 rounded-full px-3 py-1">&times;</button>
                                 {/* Notes app content */}
                                 <h2 className="text-2xl font-bold mb-4 text-yellow-700">Punch.in Notes</h2>
-                                <div className="mb-6 text-base text-gray-700">Create notebooks and add notes for your subjects, tasks, or ideas. All notes are private and stored locally.</div>
+                                <div className="mb-6 text-base text-gray-700">Create notebooks and add notes for your subjects, tasks, or ideas. All notes are private and only visible to you.</div>
                                 {/* Notebooks List & Creation */}
                                 <div className="mb-6">
                                     <form className="flex gap-2" onSubmit={handleCreateNotebook}>
