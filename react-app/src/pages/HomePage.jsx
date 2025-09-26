@@ -23,6 +23,8 @@ function PodCopyConnector() {
     );
 }
 import NotesEditor from '../components/NotesEditor.jsx';
+import NotificationBanner from '../components/NotificationBanner.jsx';
+import AdminRecoveryPanel from '../components/AdminRecoveryPanel.jsx';
 import React, { useContext, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { UserContext } from '../context/UserContext.jsx';
@@ -56,14 +58,24 @@ function PodBunkPlannerWithContext() {
 }
 
 const HomePage = () => {
-    const { currentUser, profile, logout, activeModal, setActiveModal } = useContext(UserContext);
+    const { currentUser, profile, logout, activeModal, setActiveModal, isAdmin } = useContext(UserContext);
 
-    const [podsOpen, setPodsOpen] = useState(false);
-    const [infoOpen, setInfoOpen] = useState(false);
-    // Notes app state
-    const [notesOpen, setNotesOpen] = useState(false);
-    // Pods help modal state
-    const [podsHelpOpen, setPodsHelpOpen] = useState(false);
+        const [podsOpen, setPodsOpen] = useState(false);
+        const [infoOpen, setInfoOpen] = useState(false);
+        // Notes app state
+        const [notesOpen, setNotesOpen] = useState(false);
+        // Pods help modal state
+        const [podsHelpOpen, setPodsHelpOpen] = useState(false);
+        // Notification state
+        const [notification, setNotification] = useState({ message: '', type: 'info' });
+
+        // Helper to show notification
+        const showNotification = (message, type = 'info', duration = 4000) => {
+            setNotification({ message, type });
+            if (duration > 0) {
+                setTimeout(() => setNotification({ message: '', type: 'info' }), duration);
+            }
+        };
 
     // Notes app handlers
     const handleCreateNotebook = (e) => {
@@ -123,16 +135,30 @@ const HomePage = () => {
             setDoc(userDocRef, { notebooks: updated }, { merge: true });
         }
     };
+    const [adminPanelOpen, setAdminPanelOpen] = useState(false);
+
     return (
         <div className="gradient-bg min-h-screen text-white flex flex-col">
+            <NotificationBanner message={notification.message} type={notification.type} onClose={() => setNotification({ message: '', type: 'info' })} />
             {activeModal === 'profile' && <ProfileModal />}
             {activeModal === 'editSubjects' && <EditSubjectsModal />}
             {activeModal === 'timetable' && <TimetableModal />}
 
-            <div className="fixed top-6 right-6 z-50 flex items-center gap-3">
-                <button onClick={() => setActiveModal('profile')} title="Profile & Settings" className="bg-gray-500 hover:bg-gray-600 text-white p-3 rounded-full"><i className="fas fa-user-cog"></i></button>
-                <button onClick={logout} title="Logout" className="bg-red-500 hover:bg-red-600 text-white p-3 rounded-full"><i className="fas fa-sign-out-alt"></i></button>
-            </div>
+                        <div className="fixed top-6 right-6 z-50 flex items-center gap-3">
+                                <button onClick={() => setActiveModal('profile')} title="Profile & Settings" className="bg-gray-500 hover:bg-gray-600 text-white p-3 rounded-full"><i className="fas fa-user-cog"></i></button>
+                                <button onClick={logout} title="Logout" className="bg-red-500 hover:bg-red-600 text-white p-3 rounded-full"><i className="fas fa-sign-out-alt"></i></button>
+                                {isAdmin && (
+                                    <button onClick={() => setAdminPanelOpen(true)} title="Admin Recovery Panel" className="bg-yellow-700 hover:bg-yellow-800 text-white p-3 rounded-full"><i className="fas fa-tools"></i></button>
+                                )}
+                        </div>
+                        {adminPanelOpen && (
+                            <div className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center">
+                                <div className="relative w-full max-w-2xl">
+                                    <button onClick={() => setAdminPanelOpen(false)} className="absolute top-4 right-4 text-xl bg-gray-800 hover:bg-gray-600 text-white rounded-full px-3 py-1">&times;</button>
+                                    <AdminRecoveryPanel />
+                                </div>
+                            </div>
+                        )}
 
             <DateTime />
 
