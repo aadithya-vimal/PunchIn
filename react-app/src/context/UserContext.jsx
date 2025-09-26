@@ -67,7 +67,7 @@ export const UserProvider = ({ children }) => {
   // ...other function definitions (punchIn, undoPunchIn, etc.)...
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       setIsLoading(false);
       if (!user) {
@@ -84,9 +84,24 @@ export const UserProvider = ({ children }) => {
         } else {
           setIsAdmin(false);
         }
+        // Load all user data from Firestore
+        const userDocRef = doc(db, 'users', user.uid);
+        const unsubscribeData = onSnapshot(userDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            setSubjects(data.subjects || []);
+            setAttendanceData(data.attendanceData || {});
+            setTimetable(data.timetable || {});
+            setProfile(data.profile || {});
+          }
+        }, (error) => {
+          console.error('Error loading user data:', error);
+        });
+        // Clean up Firestore listener on logout
+        return () => unsubscribeData();
       }
     });
-    return () => unsubscribe();
+    return () => unsubscribeAuth();
   }, []);
 
   // ...existing code...
