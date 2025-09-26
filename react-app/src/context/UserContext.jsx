@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
+import { saveToIndexedDB, getFromIndexedDB } from '../utils/indexedDB';
 
 export const UserContext = createContext();
 
@@ -23,6 +24,47 @@ export const UserProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeModal, setActiveModal] = useState(null);
   const [selectedSubjects, setSelectedSubjects] = useState([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  // Function definitions
+  const validateData = (data) => {
+    if ('subjects' in data && (!Array.isArray(data.subjects) || data.subjects.some(s => typeof s !== 'string' || !s.trim()))) {
+      alert('Invalid subjects data. Each subject must be a non-empty string.');
+      return false;
+    }
+    if ('attendanceData' in data && typeof data.attendanceData !== 'object') {
+      alert('Invalid attendance data.');
+      return false;
+    }
+    if ('timetable' in data && typeof data.timetable !== 'object') {
+      alert('Invalid timetable data.');
+      return false;
+    }
+    if ('profile' in data && typeof data.profile !== 'object') {
+      alert('Invalid profile data.');
+      return false;
+    }
+    return true;
+  };
+
+  const saveData = async (dataToSave, options = {}) => {
+    if (!currentUser) return;
+    if (options.confirmDestructive) {
+      const isDestructive = Object.keys(dataToSave).some(key => key === 'subjects' || key === 'attendanceData' || key === 'timetable');
+      if (isDestructive) {
+        const confirmed = window.confirm('This action will overwrite your subjects, attendance, or timetable. Are you sure you want to proceed?');
+        if (!confirmed) return;
+      }
+    }
+    if (!validateData(dataToSave)) return;
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    try {
+      await updateDoc(userDocRef, dataToSave);
+    } catch (e) {
+      console.error("Error saving data:", e);
+    }
+  };
+
+  // ...other function definitions (punchIn, undoPunchIn, etc.)...
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -34,37 +76,20 @@ export const UserProvider = ({ children }) => {
         setTimetable({});
         setProfile({});
         setSelectedSubjects([]);
+        setIsAdmin(false);
         localStorage.removeItem('attendanceData');
+      } else {
+        if (user.email === 'aadithyavimal06@gmail.com') {
+          setIsAdmin(true);
+        } else {
+          setIsAdmin(false);
+        }
       }
     });
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (currentUser) {
-      const userDocRef = doc(db, 'users', currentUser.uid);
-      const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setSubjects(data.subjects || []);
-          setAttendanceData(data.attendanceData || {});
-          setTimetable(data.timetable || {});
-          setProfile(data.profile || {});
-          localStorage.setItem('attendanceData', JSON.stringify(data.attendanceData || {}));
-        } else {
-          const defaultData = {
-            subjects: [],
-            attendanceData: {},
-            timetable: {},
-            profile: { displayName: currentUser.displayName || currentUser.email }
-          };
-          setDoc(userDocRef, defaultData).catch(console.error);
-          localStorage.setItem('attendanceData', JSON.stringify({}));
-        }
-      });
-      return () => unsubscribe();
-    }
-  }, [currentUser]);
+  // ...existing code...
 
   useEffect(() => {
     localStorage.setItem('attendanceData', JSON.stringify(attendanceData));
@@ -88,15 +113,6 @@ export const UserProvider = ({ children }) => {
     });
   };
 
-  const saveData = async (dataToSave) => {
-    if (!currentUser) return;
-    const userDocRef = doc(db, 'users', currentUser.uid);
-    try {
-      await updateDoc(userDocRef, dataToSave);
-    } catch (e) {
-      console.error("Error saving data:", e);
-    }
-  };
 
   const punchIn = (subjectIndex, period, status) => {
     setAttendanceData(prev => {
