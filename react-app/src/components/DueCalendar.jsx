@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase/config';
+import { UserContext } from '../context/UserContext.jsx';
 
 function getDaysLeft(dueDate) {
   const today = new Date();
@@ -24,6 +27,7 @@ function getMonthDays(year, month) {
 }
 
 const DueCalendar = () => {
+  const { currentUser } = useContext(UserContext);
   const [items, setItems] = useState([]);
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
@@ -37,11 +41,32 @@ const DueCalendar = () => {
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const monthDays = getMonthDays(viewYear, viewMonth);
 
+
+  // Real-time sync with Firestore
+  useEffect(() => {
+    if (!currentUser) return;
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setItems(data.dueItems || []);
+      }
+    });
+    return () => unsubscribe();
+  }, [currentUser]);
+
+
+
   const addItem = () => {
     if (!title || !dueDate) return;
-    setItems([...items, { title, dueDate }]);
+    const newItems = [...items, { title, dueDate }];
+    setItems(newItems);
     setTitle('');
     setDueDate('');
+    if (currentUser) {
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      setDoc(userDocRef, { dueItems: newItems }, { merge: true });
+    }
   };
 
   const tasksByDay = monthDays.map(day => {
@@ -156,7 +181,14 @@ const DueCalendar = () => {
                   <span className="font-semibold">{item.title}</span>
                   <span className="ml-2 text-xs">Due: {item.dueDate}</span>
                   <button
-                    onClick={() => setItems(items.filter((_, i) => i !== idx))}
+                    onClick={() => {
+                      const newItems = items.filter((_, i) => i !== idx);
+                      setItems(newItems);
+                      if (currentUser) {
+                        const userDocRef = doc(db, 'users', currentUser.uid);
+                        setDoc(userDocRef, { dueItems: newItems }, { merge: true });
+                      }
+                    }}
                     className="bg-red-500 hover:bg-red-700 text-white px-2 py-1 rounded text-xs ml-2"
                   >Delete</button>
                 </li>

@@ -22,7 +22,8 @@ function PodCopyConnector() {
         </>
     );
 }
-import React, { useContext, useState } from 'react';
+import NotesEditor from '../components/NotesEditor.jsx';
+import React, { useContext, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { UserContext } from '../context/UserContext.jsx';
 import SubjectList from '../components/SubjectList.jsx';
@@ -46,7 +47,7 @@ import PodBadgesLeaderboard from '../pods/PodBadgesLeaderboard.jsx';
 import { PodGroupAIProvider, PodGroupAIContext } from '../pods/PodGroupAIContext.jsx';
 import PodBunkPlanner from '../pods/PodBunkPlanner.jsx';
 import { db } from '../firebase/config';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
 // PodBunkPlanner with context
 function PodBunkPlannerWithContext() {
@@ -61,26 +62,6 @@ const HomePage = () => {
     const [infoOpen, setInfoOpen] = useState(false);
     // Notes app state
     const [notesOpen, setNotesOpen] = useState(false);
-    const [notebooks, setNotebooks] = useState([]);
-
-    useEffect(() => {
-        if (!currentUser) return;
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        getDoc(userDocRef).then(docSnap => {
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                setNotebooks(data.notebooks || []);
-            }
-        });
-    }, [currentUser]);
-
-    useEffect(() => {
-        if (!currentUser) return;
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        setDoc(userDocRef, { notebooks }, { merge: true });
-    }, [notebooks, currentUser]);
-    const [newNotebookName, setNewNotebookName] = useState("");
-    const [noteInputs, setNoteInputs] = useState({});
     // Pods help modal state
     const [podsHelpOpen, setPodsHelpOpen] = useState(false);
 
@@ -88,11 +69,21 @@ const HomePage = () => {
     const handleCreateNotebook = (e) => {
         e.preventDefault();
         if (!newNotebookName.trim()) return;
-        setNotebooks([...notebooks, { id: Date.now(), name: newNotebookName.trim(), notes: [] }]);
+        const updated = [...notebooks, { id: Date.now(), name: newNotebookName.trim(), notes: [] }];
+        setNotebooks(updated);
+        if (currentUser) {
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            setDoc(userDocRef, { notebooks: updated }, { merge: true });
+        }
         setNewNotebookName("");
     };
     const handleDeleteNotebook = (id) => {
-        setNotebooks(notebooks.filter(nb => nb.id !== id));
+        const updated = notebooks.filter(nb => nb.id !== id);
+        setNotebooks(updated);
+        if (currentUser) {
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            setDoc(userDocRef, { notebooks: updated }, { merge: true });
+        }
         setNoteInputs(inputs => {
             const copy = { ...inputs };
             delete copy[id];
@@ -103,11 +94,34 @@ const HomePage = () => {
         e.preventDefault();
         const note = noteInputs[notebookId]?.trim();
         if (!note) return;
-        setNotebooks(notebooks.map(nb => nb.id === notebookId ? { ...nb, notes: [...nb.notes, note] } : nb));
+        const updated = notebooks.map(nb => nb.id === notebookId ? { ...nb, notes: [...nb.notes, note] } : nb);
+        setNotebooks(updated);
+        if (currentUser) {
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            setDoc(userDocRef, { notebooks: updated }, { merge: true });
+        }
         setNoteInputs(inputs => ({ ...inputs, [notebookId]: "" }));
     };
     const handleDeleteNote = (notebookId, noteIdx) => {
-        setNotebooks(notebooks.map(nb => nb.id === notebookId ? { ...nb, notes: nb.notes.filter((_, idx) => idx !== noteIdx) } : nb));
+        const updated = notebooks.map(nb => nb.id === notebookId ? { ...nb, notes: nb.notes.filter((_, idx) => idx !== noteIdx) } : nb);
+        setNotebooks(updated);
+        if (currentUser) {
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            setDoc(userDocRef, { notebooks: updated }, { merge: true });
+        }
+    };
+    const handleEditNote = (notebookId, noteIdx, value) => {
+        const updated = notebooks.map(nb => nb.id === notebookId ? {
+            ...nb,
+            notes: nb.notes.map((note, idx) => idx === noteIdx ? value : note)
+        } : nb);
+        setNotebooks(updated);
+        setEditingNote({ notebookId: null, noteIdx: null });
+        setEditNoteValue("");
+        if (currentUser) {
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            setDoc(userDocRef, { notebooks: updated }, { merge: true });
+        }
     };
     return (
         <div className="gradient-bg min-h-screen text-white flex flex-col">
@@ -203,51 +217,16 @@ const HomePage = () => {
                             </div>
                     {/* Notes App Modal */}
                     {notesOpen && (
-                        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center">
-                            <div className="bg-gradient-to-br from-yellow-100 via-yellow-50 to-white text-gray-900 rounded-xl shadow-2xl p-8 max-w-2xl w-full relative overflow-y-auto" style={{maxHeight: '90vh', backgroundColor: 'rgba(255, 255, 220, 0.98)'}}>
-                                <button onClick={() => setNotesOpen(false)} className="absolute top-4 right-4 text-xl bg-gray-200 hover:bg-yellow-200 text-gray-900 rounded-full px-3 py-1">&times;</button>
-                                {/* Notes app content */}
-                                <h2 className="text-2xl font-bold mb-4 text-yellow-700">Punch.in Notes</h2>
-                                <div className="mb-6 text-base text-gray-700">Create notebooks and add notes for your subjects, tasks, or ideas. All notes are private and only visible to you.</div>
-                                {/* Notebooks List & Creation */}
-                                <div className="mb-6">
-                                    <form className="flex gap-2" onSubmit={handleCreateNotebook}>
-                                        <input type="text" value={newNotebookName} onChange={e => setNewNotebookName(e.target.value)} placeholder="New Notebook Name" className="border border-yellow-400 rounded px-3 py-2 w-full" />
-                                        <button type="submit" className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold px-4 py-2 rounded">Create</button>
-                                    </form>
-                                </div>
-                                {/* Notebooks Display */}
-                                <div className="space-y-4">
-                                    {notebooks.length === 0 ? (
-                                        <div className="text-gray-500">No notebooks yet. Create one above!</div>
-                                    ) : (
-                                        notebooks.map((notebook, idx) => (
-                                            <div key={notebook.id} className="border border-yellow-300 rounded-lg p-4 bg-white/80">
-                                                <div className="flex justify-between items-center mb-2">
-                                                    <span className="font-semibold text-lg text-yellow-700">{notebook.name}</span>
-                                                    <button onClick={() => handleDeleteNotebook(notebook.id)} className="text-red-500 hover:text-red-700 text-sm">Delete</button>
-                                                </div>
-                                                {/* Notes List & Creation */}
-                                                <form className="flex gap-2 mb-2" onSubmit={e => handleAddNote(e, notebook.id)}>
-                                                    <input type="text" value={noteInputs[notebook.id] || ''} onChange={e => setNoteInputs({ ...noteInputs, [notebook.id]: e.target.value })} placeholder="Add a note..." className="border border-yellow-400 rounded px-2 py-1 w-full" />
-                                                    <button type="submit" className="bg-yellow-300 hover:bg-yellow-400 text-white font-bold px-3 py-1 rounded">Add</button>
-                                                </form>
-                                                <ul className="list-disc ml-6">
-                                                    {notebook.notes.length === 0 ? (
-                                                        <li className="text-gray-400">No notes yet.</li>
-                                                    ) : (
-                                                        notebook.notes.map((note, nidx) => (
-                                                            <li key={nidx} className="flex justify-between items-center py-1">
-                                                                <span>{note}</span>
-                                                                <button onClick={() => handleDeleteNote(notebook.id, nidx)} className="text-red-400 hover:text-red-600 text-xs ml-2">Delete</button>
-                                                            </li>
-                                                        ))
-                                                    )}
-                                                </ul>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+                            <div className="relative w-full max-w-4xl">
+                                <button
+                                    onClick={() => setNotesOpen(false)}
+                                    className="fixed top-8 right-8 z-50 text-xl bg-gray-900 hover:bg-yellow-600 text-white rounded-full px-3 py-1"
+                                    style={{ position: 'absolute' }}
+                                >
+                                    &times;
+                                </button>
+                                <NotesEditor onClose={() => setNotesOpen(false)} />
                             </div>
                         </div>
                     )}
