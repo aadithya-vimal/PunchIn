@@ -31,7 +31,15 @@ const AITopicSuggester = () => {
           {isLoading ? 'Suggesting...' : 'Suggest Topics'}
         </button>
       </div>
+      
+      {/* --- FIX: Removed dangerouslySetInnerHTML --- */}
+      <div className="bg-black/20 p-6 rounded-lg min-h-[100px] ai-recommendation-content whitespace-pre-wrap">
+        {result || "Select a subject to get key topics for study."}
+      </div>
+      {/*
       <div className="bg-black/20 p-6 rounded-lg min-h-[100px] ai-recommendation-content" dangerouslySetInnerHTML={{ __html: result || "<p>Select a subject to get key topics for study.</p>" }}></div>
+      */}
+      {/* --- END FIX --- */}
     </div>
   );
 };

@@ -30,7 +30,16 @@ const AIStudyPlanner = () => {
           {isLoading ? 'Generating...' : 'Generate Study Plan'}
         </button>
       </div>
+      
+      {/* --- FIX: Removed dangerouslySetInnerHTML --- */}
+      <div className="bg-black/20 p-6 rounded-lg min-h-[100px] ai-recommendation-content whitespace-pre-wrap">
+        {result || "Enter a goal and get a personalized study schedule."}
+      </div>
+      {/*
       <div className="bg-black/20 p-6 rounded-lg min-h-[100px] ai-recommendation-content" dangerouslySetInnerHTML={{ __html: result || "<p>Enter a goal and get a personalized study schedule.</p>" }}></div>
+      */}
+      {/* --- END FIX --- */}
+
     </div>
   );
 };

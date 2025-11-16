@@ -76,10 +76,20 @@ Provide a detailed, step-by-step, multi-point structured response with examples 
           {isLoading ? 'Analyzing...' : 'Get Insights & Bunk Plan'}
         </button>
       </div>
+
+      {/* --- FIX: Removed dangerouslySetInnerHTML --- */}
       <div
+        className="bg-black/20 p-6 rounded-lg min-h-[100px] text-white/80 leading-relaxed whitespace-pre-wrap ai-recommendation-content"
+      >
+        {result || "Click the button to get detailed AI-powered bunk insights..."}
+      </div>
+      {/* <div
         className="bg-black/20 p-6 rounded-lg min-h-[100px] text-white/80 leading-relaxed whitespace-pre-wrap ai-recommendation-content"
         dangerouslySetInnerHTML={{ __html: result || "<p>Click the button to get detailed AI-powered bunk insights...</p>" }}
       />
+      */}
+      {/* --- END FIX --- */}
+      
     </div>
   );
 };

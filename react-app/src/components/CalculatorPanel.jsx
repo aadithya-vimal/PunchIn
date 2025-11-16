@@ -197,6 +197,14 @@ ${JSON.stringify(resultsData, null, 2)}
           {resultsData && (
             <div className="mt-6">
               <h3 className="text-xl font-bold mb-4 text-gradient">✨ AI Result Insights</h3>
+              
+              {/* --- FIX: Removed dangerouslySetInnerHTML --- */}
+              <div
+                className="bg-black/20 p-6 rounded-lg min-h-[100px] ai-recommendation-content whitespace-pre-wrap"
+              >
+                {insight || "Click the button for AI advice."}
+              </div>
+              {/*
               <div
                 className="bg-black/20 p-6 rounded-lg min-h-[100px] ai-recommendation-content"
                 style={{ whiteSpace: 'pre-wrap' }}
@@ -210,6 +218,9 @@ ${JSON.stringify(resultsData, null, 2)}
                     : "<p>Click the button for AI advice.</p>",
                 }}
               />
+              */}
+              {/* --- END FIX --- */}
+
               <StyledButton
                 onClick={handleGetInsight}
                 disabled={isInsightLoading}

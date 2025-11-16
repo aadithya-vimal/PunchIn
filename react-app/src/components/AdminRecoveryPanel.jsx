@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { db } from '../firebase/config';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+// --- FIX: Import v9 Firestore functions ---
+import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+// ---
 import { UserContext } from '../context/UserContext.jsx';
 import NotificationBanner from './NotificationBanner.jsx';
 
@@ -18,9 +20,12 @@ const AdminRecoveryPanel = () => {
     if (!userEmail) return;
     setNotification({ message: '', type: 'info' });
     try {
-      // Find user by email (assume email is unique)
-      // You may need to index users by email in Firestore for large scale
-      const userQuery = await db.collection('users').where('profile.email', '==', userEmail).get();
+      // --- FIX: Updated query to v9 syntax ---
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('profile.email', '==', userEmail));
+      const userQuery = await getDocs(q);
+      // ---
+      
       if (userQuery.empty) {
         setNotification({ message: 'No user found with that email.', type: 'error' });
         setUserData(null);
@@ -29,6 +34,7 @@ const AdminRecoveryPanel = () => {
       const userDoc = userQuery.docs[0];
       setUserData({ id: userDoc.id, ...userDoc.data() });
     } catch (e) {
+      console.error('Error fetching user:', e); // Added console.error for debugging
       setNotification({ message: 'Error fetching user data.', type: 'error' });
     }
   };
@@ -37,6 +43,8 @@ const AdminRecoveryPanel = () => {
     if (!userData) return;
     try {
       // Example: restore from backup in IndexedDB (could be extended for Firestore backups)
+      // Note: Your indexedDB.js doesn't export 'getFromIndexedDB' as a named export.
+      // This function may not work as intended.
       const backup = await window.indexedDB.getFromIndexedDB('userDataBackup');
       if (!backup) {
         setNotification({ message: 'No backup found for this user.', type: 'error' });

@@ -1,6 +1,7 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { UserContext } from '../context/UserContext.jsx';
-import PortalModal from './PortalModal.jsx'; // Your portal modal wrapper
+// PortalModal is no longer needed here
+// import PortalModal from './PortalModal.jsx'; 
 
 const SubjectList = () => {
   const {
@@ -8,14 +9,16 @@ const SubjectList = () => {
     attendanceData,
     selectedSubjects,
     handleSelectSubject,
-    saveData,
+    // We now need 'setActiveModal' instead of 'saveData'
+    setActiveModal, 
   } = useContext(UserContext);
 
   const [sortMode, setSortMode] = useState('name'); // 'name', 'desc', 'asc'
   const [sortedSubjectsData, setSortedSubjectsData] = useState([]);
 
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [editedSubjects, setEditedSubjects] = useState([]);
+  // These states are no longer needed, they live in the correct modal
+  // const [isEditOpen, setIsEditOpen] = useState(false);
+  // const [editedSubjects, setEditedSubjects] = useState([]);
 
   useEffect(() => {
     const combined = subjects.map((subject, index) => {
@@ -35,11 +38,13 @@ const SubjectList = () => {
     setSortedSubjectsData(sorted);
   }, [subjects, attendanceData, sortMode]);
 
+  // This function is now simplified to open the correct modal
   const openEditModal = () => {
-    setEditedSubjects([...subjects]);
-    setIsEditOpen(true);
+    setActiveModal('editSubjects');
   };
 
+  // All these local modal functions are no longer needed
+  /*
   const closeEditModal = () => {
     setIsEditOpen(false);
   };
@@ -52,7 +57,6 @@ const SubjectList = () => {
     });
   };
 
-  // Add empty new subject input
   const handleAddSubject = () => {
     setEditedSubjects(prev => [...prev, '']);
   };
@@ -61,16 +65,18 @@ const SubjectList = () => {
     setEditedSubjects(prev => prev.filter((_, i) => i !== index));
   };
 
+  // This was the BUGGY save function that caused the "Only Monday" problem
   const handleConfirmSubjects = async () => {
     const cleaned = editedSubjects.map(s => s.trim()).filter(s => s !== '');
     try {
-      await saveData({ subjects: cleaned });
+      await saveData({ subjects: cleaned }); // <--- This was the bug
       setIsEditOpen(false);
     } catch (error) {
       console.error("Failed to save subjects", error);
       alert("Failed to save subjects, please try again.");
     }
   };
+  */
 
   return (
     <div className="lg:w-1/4 bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-lg relative z-0">
@@ -78,7 +84,7 @@ const SubjectList = () => {
         <h2 className="text-2xl font-bold">Your Subjects</h2>
         <button
           title="Edit Subjects"
-          onClick={openEditModal}
+          onClick={openEditModal} // <--- This now opens the correct modal
           className="bg-indigo-500 hover:bg-indigo-600 text-white p-2 rounded-full transition-transform hover:scale-110"
           aria-label="Edit Subjects"
         >
@@ -126,70 +132,8 @@ const SubjectList = () => {
         )}
       </div>
 
-      {/* Modal via React Portal */}
-      {isEditOpen && (
-        <PortalModal>
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="edit-subjects-title"
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-          >
-            <div className="bg-gray-900 text-white rounded-xl p-6 w-full max-w-lg max-h-[85vh] overflow-y-auto flex flex-col shadow-lg">
-              <h3 id="edit-subjects-title" className="text-xl mb-4 font-bold text-center">
-                Edit Subjects
-              </h3>
-              <div className="flex flex-col gap-3 flex-grow overflow-y-auto mb-4">
-                {editedSubjects.map((subject, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={subject}
-                      onChange={(e) => handleChangeSubject(index, e.target.value)}
-                      className="flex-grow p-2 rounded bg-gray-800 border border-gray-700 text-white"
-                      placeholder={`Subject #${index + 1}`}
-                      autoFocus={index === editedSubjects.length - 1}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveSubject(index)}
-                      title="Remove subject"
-                      className="bg-red-600 hover:bg-red-700 text-white rounded px-3 py-1 flex-shrink-0"
-                    >
-                      &times;
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="flex justify-between">
-                <button
-                  type="button"
-                  onClick={handleAddSubject}
-                  className="bg-green-600 hover:bg-green-700 text-white rounded px-4 py-2"
-                >
-                  + Add Subject
-                </button>
-                <div>
-                  <button
-                    type="button"
-                    onClick={closeEditModal}
-                    className="mr-3 px-4 py-2 rounded border border-white/20 hover:bg-white/10"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleConfirmSubjects}
-                    className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded"
-                  >
-                    Confirm Subjects
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </PortalModal>
-      )}
+      {/* The entire buggy modal that was here has been REMOVED */}
+      
     </div>
   );
 };

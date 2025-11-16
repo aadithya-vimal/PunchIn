@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useRef } from 'react'; // Added useRef
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
@@ -26,6 +26,10 @@ export const UserProvider = ({ children }) => {
   const [selectedSubjects, setSelectedSubjects] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
   
+  // --- FIX: Debounce timer for attendance input fields ---
+  const attendanceSaveTimer = useRef(null);
+  // ---
+
   // Function definitions
   const validateData = (data) => {
     if ('subjects' in data && (!Array.isArray(data.subjects) || data.subjects.some(s => typeof s !== 'string' || !s.trim()))) {
@@ -139,11 +143,19 @@ export const UserProvider = ({ children }) => {
         setIsAdmin(false);
         localStorage.removeItem('attendanceData');
       } else {
-        if (user.email === 'aadithyavimal06@gmail.com') {
-          setIsAdmin(true);
-        } else {
-          setIsAdmin(false);
-        }
+        // --- SECURITY FIX: CLIENT-SIDE ADMIN CHECK REMOVED ---
+        // This is insecure. Admin status must be set via a secure backend
+        // (e.g., Firebase Custom Claims) and read from the user token.
+        // We set it to false and leave the 'isAdmin' prop for UI compatibility.
+        // if (user.email === 'aadithyavimal06@gmail.com') { // <-- REMOVED
+        //   setIsAdmin(true);
+        // } else {
+        //   setIsAdmin(false);
+        // }
+        // TODO: Replace this with a secure check
+        setIsAdmin(false); 
+        // --- END SECURITY FIX ---
+
         // Load all user data from Firestore
         const userDocRef = doc(db, 'users', user.uid);
         const unsubscribeData = onSnapshot(userDocRef, (docSnap) => {
@@ -170,6 +182,27 @@ export const UserProvider = ({ children }) => {
     localStorage.setItem('attendanceData', JSON.stringify(attendanceData));
   }, [attendanceData]);
 
+  // --- PERFORMANCE FIX: Centralized save function ---
+  const saveAttendanceDataToFirebase = (newData) => {
+    if (!currentUser) return;
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    // Save the entire attendanceData object
+    updateDoc(userDocRef, { attendanceData: newData })
+      .catch(e => console.error("Error saving attendanceData:", e));
+  };
+  
+  // --- PERFORMANCE FIX: Debouncer function ---
+  const queueAttendanceSave = (newData) => {
+    // Clear existing timer
+    if (attendanceSaveTimer.current) {
+      clearTimeout(attendanceSaveTimer.current);
+    }
+    // Set new timer to save after 1.5 seconds
+    attendanceSaveTimer.current = setTimeout(() => {
+      saveAttendanceDataToFirebase(newData);
+    }, 1500);
+  };
+
   const updateAttendanceData = (index, field, value) => {
     setAttendanceData(prev => {
       const updated = { ...prev };
@@ -178,12 +211,11 @@ export const UserProvider = ({ children }) => {
       }
       updated[index][field] = value;
 
-      // Persist change to Firestore immediately
-      if (currentUser) {
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        updateDoc(userDocRef, { [`attendanceData.${index}`]: updated[index] })
-          .catch(e => console.error("Error saving attendanceData:", e));
-      }
+      // --- PERFORMANCE FIX ---
+      // Don't save immediately. Queue the save.
+      queueAttendanceSave(updated);
+      // ---
+      
       return updated;
     });
   };
@@ -194,8 +226,8 @@ export const UserProvider = ({ children }) => {
       const todayDate = new Date().toISOString().slice(0, 10);
       const updated = { ...prev };
       const oldData = prev[subjectIndex] || { attended: 0, total: 0, requiredPerc: 75, dailyStatus: {} };
-  let attended = Number(oldData.attended) || 0;
-  let total = Number(oldData.total) || 0;
+      let attended = Number(oldData.attended) || 0;
+      let total = Number(oldData.total) || 0;
       // Deep clone dailyStatus
       const dailyStatus = JSON.parse(JSON.stringify(oldData.dailyStatus || {}));
       const day = dailyStatus[todayDate] ? { ...dailyStatus[todayDate] } : {};
@@ -218,11 +250,12 @@ export const UserProvider = ({ children }) => {
         total,
         dailyStatus
       };
-      if (currentUser) {
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        updateDoc(userDocRef, { [`attendanceData.${subjectIndex}`]: updated[subjectIndex] })
-          .catch(e => console.error("Error saving attendanceData:", e));
-      }
+      
+      // --- PERFORMANCE FIX ---
+      // Save immediately, but use the centralized function
+      saveAttendanceDataToFirebase(updated);
+      // ---
+      
       return updated;
     });
   };
@@ -232,8 +265,8 @@ export const UserProvider = ({ children }) => {
       const todayDate = new Date().toISOString().slice(0, 10);
       const updated = { ...prev };
       const oldData = prev[subjectIndex] || { attended: 0, total: 0, requiredPerc: 75, dailyStatus: {} };
-  let attended = Number(oldData.attended) || 0;
-  let total = Number(oldData.total) || 0;
+      let attended = Number(oldData.attended) || 0;
+      let total = Number(oldData.total) || 0;
       // Deep clone dailyStatus
       const dailyStatus = JSON.parse(JSON.stringify(oldData.dailyStatus || {}));
       const day = dailyStatus[todayDate] ? { ...dailyStatus[todayDate] } : {};
@@ -261,11 +294,12 @@ export const UserProvider = ({ children }) => {
         total,
         dailyStatus
       };
-      if (currentUser) {
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        updateDoc(userDocRef, { [`attendanceData.${subjectIndex}`]: updated[subjectIndex] })
-          .catch(e => console.error("Error saving attendanceData:", e));
-      }
+
+      // --- PERFORMANCE FIX ---
+      // Save immediately, but use the centralized function
+      saveAttendanceDataToFirebase(updated);
+      // ---
+      
       return updated;
     });
   };

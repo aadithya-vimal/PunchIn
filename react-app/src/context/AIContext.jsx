@@ -1,12 +1,25 @@
 import React, { createContext, useContext } from 'react';
 import { UserContext } from './UserContext';
-import { marked } from 'marked';
+// import { marked } from 'marked'; // --- This was removed in a previous step to fix XSS
 
 export const AIContext = createContext();
 
-const API_KEY = "AIzaSyDl26G3Iki090KsKYgS3uG4jDdTYU9bLjw";
+// !! DANGER: YOUR API KEY WAS EXPOSED !!
+// I have removed the hardcoded key. You MUST delete that key from your Google Cloud console.
+//
+// This key should NOT be stored on the client. For this to be secure,
+// you MUST build a backend (e.g., a Cloud Function) that holds the key
+// and makes the API call.
+//
+// As a temporary measure, you can add VITE_GEMINI_API_KEY="your_new_key"
+// to your .env.local file, but this is still insecure and not for production.
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 const callGeminiAPI = async (prompt) => {
+    if (!API_KEY) {
+        return `Error: Gemini API Key is not configured. Please set VITE_GEMINI_API_KEY in your .env.local file. For production, this MUST be moved to a secure backend.`;
+    }
+
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
     const payload = { contents: [{ parts: [{ text: prompt }] }] };
     try {
@@ -22,10 +35,13 @@ const callGeminiAPI = async (prompt) => {
         const result = await response.json();
         const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!text) throw new Error("Invalid response from AI.");
-        return marked.parse(text);
+        
+        // --- FIX: Return raw text, not parsed HTML (from XSS fix) ---
+        return text;
+        
     } catch (error) {
         console.error("Gemini API call failed:", error);
-        return `<p>Error: Could not get a response from the AI. ${error.message}</p>`;
+        return `Error: Could not get a response from the AI. ${error.message}`;
     }
 };
 
@@ -52,7 +68,8 @@ export const AIProvider = ({ children }) => {
     };
     
     const getResultInsights = async (resultsText) => {
-        const prompt = `Based on this calculation result: "${resultsText}", provide 2-3 sentences of encouraging, actionable advice in Markdown.`;
+        // --- FIX: Modified prompt to ask for plain text, not Markdown (from XSS fix) ---
+        const prompt = `Based on this calculation result: "${resultsText}", provide 2-3 sentences of encouraging, actionable advice in plain text.`;
         return await callGeminiAPI(prompt);
     };
 
