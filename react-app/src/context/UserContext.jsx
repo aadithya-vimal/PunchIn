@@ -25,6 +25,7 @@ export const UserProvider = ({ children }) => {
   const [activeModal, setActiveModal] = useState(null);
   const [selectedSubjects, setSelectedSubjects] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  
   // Function definitions
   const validateData = (data) => {
     if ('subjects' in data && (!Array.isArray(data.subjects) || data.subjects.some(s => typeof s !== 'string' || !s.trim()))) {
@@ -56,15 +57,74 @@ export const UserProvider = ({ children }) => {
       }
     }
     if (!validateData(dataToSave)) return;
+
+    // --- FIX 2: Optimistic UI Update ---
+    // Update local React state immediately so the UI doesn't lag.
+    if ('subjects' in dataToSave) {
+      setSubjects(dataToSave.subjects);
+    }
+    if ('attendanceData' in dataToSave) {
+      setAttendanceData(dataToSave.attendanceData);
+    }
+    if ('timetable' in dataToSave) {
+      setTimetable(dataToSave.timetable);
+    }
+    if ('profile' in dataToSave) {
+      setProfile(dataToSave.profile);
+    }
+    // --- END FIX 2 ---
+
     const userDocRef = doc(db, 'users', currentUser.uid);
     try {
+      // Now, save the same data to Firebase
       await updateDoc(userDocRef, dataToSave);
     } catch (e) {
       console.error("Error saving data:", e);
+      // In a production app, we might "roll back" the optimistic state update here
     }
   };
 
-  // ...other function definitions (punchIn, undoPunchIn, etc.)...
+  // --- FIX 3: New function to handle subject saving and data re-indexing ---
+  const saveSubjects = (newSubjectNames) => {
+    // 1. Create a map of old subject names to their attendance data
+    const oldDataMap = new Map();
+    subjects.forEach((oldSubject, oldIndex) => {
+      oldDataMap.set(oldSubject, attendanceData[oldIndex] || { attended: 0, total: 0, requiredPerc: 75, dailyStatus: {} });
+    });
+
+    // 2. Build new attendanceData based on the new subject order
+    const newAttendanceData = {};
+    newSubjectNames.forEach((newSubject, newIndex) => {
+      // Get old data if it exists, or create new default data
+      newAttendanceData[newIndex] = oldDataMap.get(newSubject) || { attended: 0, total: 0, requiredPerc: 75, dailyStatus: {} };
+    });
+
+    // 3. Build new timetable, re-indexing subject IDs
+    const newTimetable = {};
+    Object.entries(timetable).forEach(([day, periods]) => {
+      newTimetable[day] = {};
+      Object.entries(periods).forEach(([period, subjectIndex]) => {
+        const oldSubjectName = subjects[subjectIndex]; // Get the name from the old index
+        const newIndex = newSubjectNames.indexOf(oldSubjectName); // Find the new index
+        if (newIndex !== -1) {
+          // If the subject still exists, save its new index
+          newTimetable[day][period] = newIndex;
+        }
+        // If newIndex is -1 (subject was deleted), it's automatically removed
+      });
+    });
+
+    // 4. Reset selected subjects array as indices are now invalid
+    setSelectedSubjects([]);
+    
+    // 5. Call saveData to update state and save all 3 data structures to Firebase
+    saveData({
+      subjects: newSubjectNames,
+      attendanceData: newAttendanceData,
+      timetable: newTimetable
+    });
+  };
+  // --- END FIX 3 ---
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -226,6 +286,7 @@ export const UserProvider = ({ children }) => {
     },
     updateAttendanceData,
     saveData,
+    saveSubjects, // <-- Exporting the new function
     punchIn,
     undoPunchIn,
     logout: () => signOut(auth),
@@ -242,6 +303,7 @@ export const UserProvider = ({ children }) => {
     activeModal,
     setActiveModal,
     closeModal: () => setActiveModal(null),
+    isAdmin, // <-- Exporting isAdmin
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

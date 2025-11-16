@@ -2,7 +2,8 @@ import React, { useState, useContext } from 'react';
 import { UserContext } from '../context/UserContext.jsx';
 
 const TimetableModal = () => {
-  const { subjects, timetable, saveTimetable, closeModal } = useContext(UserContext);
+  // 1. Swapped 'saveTimetable' (which doesn't exist) for 'saveData'
+  const { subjects, timetable, saveData, closeModal } = useContext(UserContext);
   const [localTimetable, setLocalTimetable] = useState(timetable || {});
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -25,7 +26,8 @@ const TimetableModal = () => {
 
   const handleSave = async () => {
     try {
-      await saveTimetable(localTimetable); // Await save
+      // 2. Changed to call saveData with the correct object structure
+      await saveData({ timetable: localTimetable }); 
       closeModal(); // Close modal after save completes
     } catch (error) {
       console.error("Failed to save timetable:", error);
