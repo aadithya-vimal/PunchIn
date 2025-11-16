@@ -28,7 +28,12 @@ const TimetableModal = () => {
     try {
       // 2. Changed to call saveData with the correct object structure
       await saveData({ timetable: localTimetable }); 
-      closeModal(); // Close modal after save completes
+      
+      // --- THIS IS THE FIX ---
+      // This line closes the modal after the save is successful.
+      closeModal(); 
+      // ---------------------
+
     } catch (error) {
       console.error("Failed to save timetable:", error);
       // optionally show error UI
