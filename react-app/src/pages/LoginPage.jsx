@@ -28,8 +28,8 @@ const LoginPage = () => {
     }
   };
 
-  // Effect to initialize and render the Google Sign-In button
-  useEffect(() => {
+  // --- New function to handle Google Initialization ---
+  const handleGoogleInit = () => {
     try {
       if (window.google) {
         window.google.accounts.id.initialize({
@@ -42,10 +42,27 @@ const LoginPage = () => {
         );
       }
     } catch (e) {
-      console.error("Google Sign-In script failed to load.", e);
+      console.error("Google Sign-In script failed to initialize.", e);
       setErrorMessage('Could not load Google Sign-In.');
     }
-  }, []); // The empty array ensures this runs only once
+  };
+
+  // Effect to initialize and render the Google Sign-In button
+  // Listen for the 'load' event to ensure the GIS script is ready.
+  useEffect(() => {
+    // Check if the script is already loaded (e.g., if this component re-rendered)
+    if (window.google?.accounts?.id?.initialize) {
+      handleGoogleInit();
+    } else {
+      // Wait for the window to indicate the script has loaded
+      window.addEventListener('load', handleGoogleInit);
+    }
+    
+    // Cleanup the listener when the component unmounts
+    return () => {
+      window.removeEventListener('load', handleGoogleInit);
+    };
+  }, []);
 
   // --- Email/Password Form Logic ---
   const handleEmailSubmit = async (e) => {
