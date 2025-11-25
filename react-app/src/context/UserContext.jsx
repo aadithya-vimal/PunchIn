@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useRef } from 'react'; // Added useRef
+import React, { createContext, useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
@@ -25,7 +25,7 @@ export const UserProvider = ({ children }) => {
   const [activeModal, setActiveModal] = useState(null);
   const [selectedSubjects, setSelectedSubjects] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
-  
+
   // --- FIX: Debounce timer for attendance input fields ---
   const attendanceSaveTimer = useRef(null);
   // ---
@@ -81,7 +81,7 @@ export const UserProvider = ({ children }) => {
     const userDocRef = doc(db, 'users', currentUser.uid);
     try {
       // Now, save the same data to Firebase
-      await updateDoc(userDocRef, dataToSave);
+      await setDoc(userDocRef, dataToSave, { merge: true });
     } catch (e) {
       console.error("Error saving data:", e);
       // In a production app, we might "roll back" the optimistic state update here
@@ -120,7 +120,7 @@ export const UserProvider = ({ children }) => {
 
     // 4. Reset selected subjects array as indices are now invalid
     setSelectedSubjects([]);
-    
+
     // 5. Call saveData to update state and save all 3 data structures to Firebase
     saveData({
       subjects: newSubjectNames,
@@ -153,7 +153,7 @@ export const UserProvider = ({ children }) => {
         //   setIsAdmin(false);
         // }
         // TODO: Replace this with a secure check
-        setIsAdmin(false); 
+        setIsAdmin(false);
         // --- END SECURITY FIX ---
 
         // Load all user data from Firestore
@@ -176,8 +176,6 @@ export const UserProvider = ({ children }) => {
     return () => unsubscribeAuth();
   }, []);
 
-  // ...existing code...
-
   useEffect(() => {
     localStorage.setItem('attendanceData', JSON.stringify(attendanceData));
   }, [attendanceData]);
@@ -187,10 +185,10 @@ export const UserProvider = ({ children }) => {
     if (!currentUser) return;
     const userDocRef = doc(db, 'users', currentUser.uid);
     // Save the entire attendanceData object
-    updateDoc(userDocRef, { attendanceData: newData })
+    setDoc(userDocRef, { attendanceData: newData }, { merge: true })
       .catch(e => console.error("Error saving attendanceData:", e));
   };
-  
+
   // --- PERFORMANCE FIX: Debouncer function ---
   const queueAttendanceSave = (newData) => {
     // Clear existing timer
@@ -215,7 +213,7 @@ export const UserProvider = ({ children }) => {
       // Don't save immediately. Queue the save.
       queueAttendanceSave(updated);
       // ---
-      
+
       return updated;
     });
   };
@@ -250,12 +248,12 @@ export const UserProvider = ({ children }) => {
         total,
         dailyStatus
       };
-      
+
       // --- PERFORMANCE FIX ---
       // Save immediately, but use the centralized function
       saveAttendanceDataToFirebase(updated);
       // ---
-      
+
       return updated;
     });
   };
@@ -299,7 +297,7 @@ export const UserProvider = ({ children }) => {
       // Save immediately, but use the centralized function
       saveAttendanceDataToFirebase(updated);
       // ---
-      
+
       return updated;
     });
   };
