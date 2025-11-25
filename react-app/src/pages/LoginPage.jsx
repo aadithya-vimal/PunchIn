@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  GoogleAuthProvider, 
-  signInWithCredential, 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword 
+import {
+  GoogleAuthProvider,
+  signInWithCredential,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword
 } from "firebase/auth";
 import { auth } from '../firebase/config'; // Import auth from our config
 
@@ -33,7 +33,7 @@ const LoginPage = () => {
     try {
       if (window.google) {
         window.google.accounts.id.initialize({
-          client_id: "1061249192401-e3in38qaqiqi4avu5pqkjkp86pjnnh9r.apps.googleusercontent.com",
+          client_id: "905769806964-qp2802bbm7dampu0dkfs78snjrpoitqm.apps.googleusercontent.com",
           callback: handleCredentialResponse
         });
         window.google.accounts.id.renderButton(
@@ -57,7 +57,7 @@ const LoginPage = () => {
       // Wait for the window to indicate the script has loaded
       window.addEventListener('load', handleGoogleInit);
     }
-    
+
     // Cleanup the listener when the component unmounts
     return () => {
       window.removeEventListener('load', handleGoogleInit);
@@ -95,7 +95,7 @@ const LoginPage = () => {
       }
     }
   };
-  
+
   const toggleAuthMode = () => {
     setIsSignUpMode(!isSignUpMode);
     setErrorMessage('');
@@ -128,32 +128,32 @@ const LoginPage = () => {
           <form onSubmit={handleEmailSubmit}>
             <div className="mb-4">
               <label htmlFor="email" className="block text-white/80 text-sm mb-2">Email</label>
-              <input 
-                type="email" 
-                id="email" 
-                className="w-full bg-white/10 border border-white/30 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/50" 
-                required 
+              <input
+                type="email"
+                id="email"
+                className="w-full bg-white/10 border border-white/30 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/50"
+                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
             <div className="mb-4">
               <label htmlFor="password" className="block text-white/80 text-sm mb-2">Password</label>
-              <input 
-                type="password" 
-                id="password" 
-                className="w-full bg-white/10 border border-white/30 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/50" 
-                required 
+              <input
+                type="password"
+                id="password"
+                className="w-full bg-white/10 border border-white/30 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/50"
+                required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
             <div className={isSignUpMode ? 'form-field-visible mb-6' : 'form-field-hidden'}>
               <label htmlFor="confirm-password" className="block text-white/80 text-sm mb-2">Confirm Password</label>
-              <input 
-                type="password" 
-                id="confirm-password" 
-                className="w-full bg-white/10 border border-white/30 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/50" 
+              <input
+                type="password"
+                id="confirm-password"
+                className="w-full bg-white/10 border border-white/30 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white/50"
                 required={isSignUpMode}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
