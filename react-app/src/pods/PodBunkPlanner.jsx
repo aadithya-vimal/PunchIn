@@ -2,6 +2,7 @@ import React, { useContext, useState } from 'react';
 import { PodContext } from './PodContext';
 import { UserContext } from '../context/UserContext';
 import DisclaimerModal from './DisclaimerModal';
+import ReactMarkdown from 'react-markdown';
 
 const PodBunkPlanner = ({ getGroupBunkRecommendation }) => {
   const { podMembers } = useContext(PodContext);
@@ -49,7 +50,9 @@ const PodBunkPlanner = ({ getGroupBunkRecommendation }) => {
       >Find Our Best Bunk Day</button>
       {loading && <div className="mt-4 text-yellow-400">Analyzing group schedule...</div>}
       {result && (
-        <div className="mt-4 p-4 bg-black/10 rounded-lg whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: result }} />
+        <div className="mt-4 p-4 bg-black/10 rounded-lg whitespace-pre-wrap prose prose-invert max-w-none">
+          <ReactMarkdown>{result}</ReactMarkdown>
+        </div>
       )}
     </div>
   );

@@ -2,7 +2,6 @@ import React, { createContext, useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
-import { saveToIndexedDB, getFromIndexedDB } from '../utils/indexedDB';
 
 export const UserContext = createContext();
 
@@ -26,26 +25,32 @@ export const UserProvider = ({ children }) => {
   const [selectedSubjects, setSelectedSubjects] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
 
+  // --- FIX Bug #16: Race Condition Tracking ---
+  // Track pending updates to prevent double-taps and listener overwrites
+  const [pendingUpdates, setPendingUpdates] = useState(new Set());
+  // ---
+
   // --- FIX: Debounce timer for attendance input fields ---
   const attendanceSaveTimer = useRef(null);
   // ---
 
   // Function definitions
   const validateData = (data) => {
+    // Bug #11 Fix: Replace alerts with console warnings
     if ('subjects' in data && (!Array.isArray(data.subjects) || data.subjects.some(s => typeof s !== 'string' || !s.trim()))) {
-      alert('Invalid subjects data. Each subject must be a non-empty string.');
+      console.warn('Invalid subjects data. Each subject must be a non-empty string.');
       return false;
     }
     if ('attendanceData' in data && typeof data.attendanceData !== 'object') {
-      alert('Invalid attendance data.');
+      console.warn('Invalid attendance data.');
       return false;
     }
     if ('timetable' in data && typeof data.timetable !== 'object') {
-      alert('Invalid timetable data.');
+      console.warn('Invalid timetable data.');
       return false;
     }
     if ('profile' in data && typeof data.profile !== 'object') {
-      alert('Invalid profile data.');
+      console.warn('Invalid profile data.');
       return false;
     }
     return true;
@@ -143,22 +148,19 @@ export const UserProvider = ({ children }) => {
         setIsAdmin(false);
         localStorage.removeItem('attendanceData');
       } else {
-        // --- SECURITY FIX: CLIENT-SIDE ADMIN CHECK REMOVED ---
-        // This is insecure. Admin status must be set via a secure backend
-        // (e.g., Firebase Custom Claims) and read from the user token.
-        // We set it to false and leave the 'isAdmin' prop for UI compatibility.
-        // if (user.email === 'aadithyavimal06@gmail.com') { // <-- REMOVED
-        //   setIsAdmin(true);
-        // } else {
-        //   setIsAdmin(false);
-        // }
-        // TODO: Replace this with a secure check
+        // Bug #7 Fix: Cleaned up admin check
+        // Admin status must be set via a secure backend (e.g., Firebase Custom Claims)
         setIsAdmin(false);
-        // --- END SECURITY FIX ---
 
         // Load all user data from Firestore
         const userDocRef = doc(db, 'users', user.uid);
         const unsubscribeData = onSnapshot(userDocRef, (docSnap) => {
+          // Bug #16 Fix: Don't overwrite local state if there are pending updates
+          if (pendingUpdates.size > 0) {
+            console.log("Skipping Firestore update due to pending local changes");
+            return;
+          }
+
           if (docSnap.exists()) {
             const data = docSnap.data();
             setSubjects(data.subjects || []);
@@ -174,19 +176,22 @@ export const UserProvider = ({ children }) => {
       }
     });
     return () => unsubscribeAuth();
-  }, []);
+  }, [pendingUpdates.size]); // Re-run listener logic when pending updates clear
 
   useEffect(() => {
     localStorage.setItem('attendanceData', JSON.stringify(attendanceData));
   }, [attendanceData]);
 
   // --- PERFORMANCE FIX: Centralized save function ---
-  const saveAttendanceDataToFirebase = (newData) => {
+  const saveAttendanceDataToFirebase = async (newData) => {
     if (!currentUser) return;
     const userDocRef = doc(db, 'users', currentUser.uid);
     // Save the entire attendanceData object
-    setDoc(userDocRef, { attendanceData: newData }, { merge: true })
-      .catch(e => console.error("Error saving attendanceData:", e));
+    try {
+      await setDoc(userDocRef, { attendanceData: newData }, { merge: true });
+    } catch (e) {
+      console.error("Error saving attendanceData:", e);
+    }
   };
 
   // --- PERFORMANCE FIX: Debouncer function ---
@@ -220,6 +225,13 @@ export const UserProvider = ({ children }) => {
 
 
   const punchIn = (subjectIndex, period, status) => {
+    // Bug #16 Fix: Deduplication
+    const updateKey = `punch-${subjectIndex}-${period}`;
+    if (pendingUpdates.has(updateKey)) return;
+
+    // Add to pending updates
+    setPendingUpdates(prev => new Set(prev).add(updateKey));
+
     setAttendanceData(prev => {
       const todayDate = new Date().toISOString().slice(0, 10);
       const updated = { ...prev };
@@ -249,16 +261,27 @@ export const UserProvider = ({ children }) => {
         dailyStatus
       };
 
-      // --- PERFORMANCE FIX ---
-      // Save immediately, but use the centralized function
-      saveAttendanceDataToFirebase(updated);
-      // ---
+      // Save immediately and clear pending status when done
+      saveAttendanceDataToFirebase(updated).finally(() => {
+        setPendingUpdates(prev => {
+          const next = new Set(prev);
+          next.delete(updateKey);
+          return next;
+        });
+      });
 
       return updated;
     });
   };
 
   const undoPunchIn = (subjectIndex, period) => {
+    // Bug #16 Fix: Deduplication
+    const updateKey = `undo-${subjectIndex}-${period}`;
+    if (pendingUpdates.has(updateKey)) return;
+
+    // Add to pending updates
+    setPendingUpdates(prev => new Set(prev).add(updateKey));
+
     setAttendanceData(prev => {
       const todayDate = new Date().toISOString().slice(0, 10);
       const updated = { ...prev };
@@ -293,10 +316,14 @@ export const UserProvider = ({ children }) => {
         dailyStatus
       };
 
-      // --- PERFORMANCE FIX ---
-      // Save immediately, but use the centralized function
-      saveAttendanceDataToFirebase(updated);
-      // ---
+      // Save immediately and clear pending status when done
+      saveAttendanceDataToFirebase(updated).finally(() => {
+        setPendingUpdates(prev => {
+          const next = new Set(prev);
+          next.delete(updateKey);
+          return next;
+        });
+      });
 
       return updated;
     });

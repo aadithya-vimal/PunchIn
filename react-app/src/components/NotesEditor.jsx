@@ -10,6 +10,8 @@ const NotesEditor = ({ onClose }) => {
   const [content, setContent] = useState('');
   const [previewMode, setPreviewMode] = useState(false);
   const [status, setStatus] = useState('');
+  // Bug #10 Fix: Track editing state to prevent race conditions
+  const [isEditing, setIsEditing] = useState(false);
 
   // Get Firestore doc ref for current user only
   const getDocRef = () => {
@@ -17,7 +19,7 @@ const NotesEditor = ({ onClose }) => {
       return doc(db, 'users', currentUser.uid);
     }
     return null;
-  } 
+  }
 
   // Real-time sync: only for current user
   useEffect(() => {
@@ -27,14 +29,15 @@ const NotesEditor = ({ onClose }) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         const notes = data.notesContent;
-        if (notes !== content) {
+        // Bug #10 Fix: Only update if not currently editing
+        if (!isEditing && notes !== content) {
           setContent(notes || '');
         }
       }
     });
     return () => unsubscribe();
-    // eslint-disable-next-line
-  }, [currentUser]);
+    // Bug #15 Fix: Add proper dependencies
+  }, [currentUser, isEditing]); // Removed content from deps to avoid loop, but added isEditing
 
   // Save notes to Firestore
   const handleSave = async () => {
@@ -43,7 +46,13 @@ const NotesEditor = ({ onClose }) => {
     setStatus('Saving...');
     await updateDoc(docRef, { notesContent: content });
     setStatus('Saved!');
+    setIsEditing(false); // Reset editing state after save
     setTimeout(() => setStatus(''), 1500);
+  };
+
+  const handleChange = (e) => {
+    setContent(e.target.value);
+    setIsEditing(true);
   };
 
   // Export notes as Markdown file
@@ -51,10 +60,6 @@ const NotesEditor = ({ onClose }) => {
     const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
     saveAs(blob, 'notes.md');
   };
-
-
-
-
 
   return (
     <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
@@ -78,7 +83,7 @@ const NotesEditor = ({ onClose }) => {
           ) : (
             <textarea
               value={content}
-              onChange={e => setContent(e.target.value)}
+              onChange={handleChange}
               className="flex-grow w-full bg-gray-800 border border-gray-700 rounded-lg p-4 text-lg resize-none text-white"
               style={{ minHeight: '300px' }}
               placeholder={"Personal notes (Markdown supported)..."}

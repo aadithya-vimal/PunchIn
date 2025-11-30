@@ -32,8 +32,16 @@ const LoginPage = () => {
   const handleGoogleInit = () => {
     try {
       if (window.google) {
+        // Bug #6 Fix: Use environment variable for Client ID
+        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+        if (!clientId) {
+          console.error("Google Client ID is missing in environment variables.");
+          setErrorMessage("Google Sign-In configuration error.");
+          return;
+        }
+
         window.google.accounts.id.initialize({
-          client_id: "905769806964-qp2802bbm7dampu0dkfs78snjrpoitqm.apps.googleusercontent.com",
+          client_id: clientId,
           callback: handleCredentialResponse
         });
         window.google.accounts.id.renderButton(
@@ -50,17 +58,33 @@ const LoginPage = () => {
   // Effect to initialize and render the Google Sign-In button
   // Listen for the 'load' event to ensure the GIS script is ready.
   useEffect(() => {
-    // Check if the script is already loaded (e.g., if this component re-rendered)
-    if (window.google?.accounts?.id?.initialize) {
-      handleGoogleInit();
-    } else {
-      // Wait for the window to indicate the script has loaded
+    // Bug #14 Fix: Add timeout fallback for script loading
+    let scriptTimeout;
+
+    const checkScriptLoaded = () => {
+      if (window.google?.accounts?.id?.initialize) {
+        handleGoogleInit();
+        return true;
+      }
+      return false;
+    };
+
+    if (!checkScriptLoaded()) {
       window.addEventListener('load', handleGoogleInit);
+
+      // Set a timeout to show an error if script doesn't load within 5 seconds
+      scriptTimeout = setTimeout(() => {
+        if (!checkScriptLoaded()) {
+          console.warn("Google Sign-In script load timeout.");
+          setErrorMessage("Google Sign-In failed to load. Please check your connection.");
+        }
+      }, 5000);
     }
 
     // Cleanup the listener when the component unmounts
     return () => {
       window.removeEventListener('load', handleGoogleInit);
+      if (scriptTimeout) clearTimeout(scriptTimeout);
     };
   }, []);
 

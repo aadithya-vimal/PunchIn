@@ -85,7 +85,8 @@ const PodManager = () => {
           value={newPodName}
           onChange={e => setNewPodName(e.target.value)}
           placeholder="New Pod Name"
-          className="px-3 py-2 rounded-lg border border-white/20 mr-2"
+          // Bug #9 Fix: Add bg-white/10 and text-white
+          className="px-3 py-2 rounded-lg border border-white/20 mr-2 bg-white/10 text-white"
           disabled={loading}
         />
         <button
@@ -100,7 +101,8 @@ const PodManager = () => {
           value={joinId}
           onChange={e => setJoinId(e.target.value)}
           placeholder="Pod ID to Join"
-          className="px-3 py-2 rounded-lg border border-white/20 mr-2"
+          // Bug #9 Fix: Add bg-white/10 and text-white
+          className="px-3 py-2 rounded-lg border border-white/20 mr-2 bg-white/10 text-white"
           disabled={loading}
         />
         <button
@@ -116,7 +118,8 @@ const PodManager = () => {
             <li key={pod.id} className="mb-2 flex items-center gap-2">
               <button
                 onClick={() => setActivePod(pod.id)}
-                className={`px-3 py-1 rounded-lg ${activePod === pod.id ? 'bg-indigo-600 text-white' : 'bg-white/20 text-black'}`}
+                // Bug #13 Fix: Change text-black to text-white for inactive pods
+                className={`px-3 py-1 rounded-lg ${activePod === pod.id ? 'bg-indigo-600 text-white' : 'bg-white/20 text-white'}`}
               >{pod.name} <span className="text-xs text-gray-400">({pod.id})</span></button>
               <button
                 onClick={() => handleCopyPodId(pod.id)}
@@ -161,7 +164,8 @@ const PodManager = () => {
                 value={addUid}
                 onChange={e => setAddUid(e.target.value)}
                 placeholder="Add member UID"
-                className="px-3 py-1 rounded-lg border border-white/20"
+                // Bug #9 Fix: Add bg-white/10 and text-white
+                className="px-3 py-1 rounded-lg border border-white/20 bg-white/10 text-white"
               />
               <button
                 onClick={handleAddMember}

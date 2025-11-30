@@ -3,7 +3,8 @@ import { UserContext } from '../context/UserContext.jsx';
 
 const EditSubjectsModal = () => {
   const { subjects, saveSubjects, closeModal } = useContext(UserContext);
-  const [localSubjects, setLocalSubjects] = useState(subjects.map(name => ({ id: Math.random(), name })));
+  const [localSubjects, setLocalSubjects] = useState(subjects.map(name => ({ id: Date.now() + Math.random(), name })));
+  const [newSubjectName, setNewSubjectName] = useState('');
 
   const handleNameChange = (id, newName) => {
     setLocalSubjects(current => current.map(sub => sub.id === id ? { ...sub, name: newName } : sub));
@@ -14,10 +15,10 @@ const EditSubjectsModal = () => {
   };
 
   const handleAddNew = () => {
-    const newSubjectName = document.getElementById('newSubjectInput').value.trim();
-    if (newSubjectName) {
-      setLocalSubjects(current => [...current, { id: Math.random(), name: newSubjectName }]);
-      document.getElementById('newSubjectInput').value = '';
+    const trimmedName = newSubjectName.trim();
+    if (trimmedName) {
+      setLocalSubjects(current => [...current, { id: Date.now() + Math.random(), name: trimmedName }]);
+      setNewSubjectName('');
     }
   };
 
@@ -37,8 +38,8 @@ const EditSubjectsModal = () => {
         <div className="flex-grow overflow-y-auto pr-2 space-y-2 mb-6">
           {localSubjects.map(subject => (
             <div key={subject.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={subject.name}
                 onChange={(e) => handleNameChange(subject.id, e.target.value)}
                 className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-1"
@@ -50,7 +51,13 @@ const EditSubjectsModal = () => {
         <div className="border-t border-white/10 pt-4 flex-shrink-0">
           <h3 className="font-semibold mb-3">Add New Subject</h3>
           <div className="flex gap-2">
-            <input type="text" id="newSubjectInput" placeholder="Enter subject name" className="flex-1 bg-white/10 border border-white/20 rounded-lg px-4 py-2" />
+            <input
+              type="text"
+              value={newSubjectName}
+              onChange={(e) => setNewSubjectName(e.target.value)}
+              placeholder="Enter subject name"
+              className="flex-1 bg-white/10 border border-white/20 rounded-lg px-4 py-2"
+            />
             <button onClick={handleAddNew} className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg">Add</button>
           </div>
         </div>

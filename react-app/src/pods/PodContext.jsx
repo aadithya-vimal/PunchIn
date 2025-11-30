@@ -11,6 +11,7 @@ export const PodProvider = ({ children }) => {
   const [activePod, setActivePod] = useState(null);
   const [podMembers, setPodMembers] = useState([]); // Array of { uid, displayName }
   const [podData, setPodData] = useState({});
+  const memberCache = React.useRef({}); // Cache for member profiles
 
   // Fetch pods for current user
   useEffect(() => {
@@ -32,21 +33,36 @@ export const PodProvider = ({ children }) => {
       if (docSnap.exists()) {
         setPodData(docSnap.data());
         const memberUids = docSnap.data().members || [];
-        // Fetch display names for all members
-        const memberInfos = await Promise.all(memberUids.map(async (uid) => {
-          const userDocRef = doc(db, 'users', String(uid));
-          const userSnap = await getDoc(userDocRef);
-          let displayName = uid;
-          if (userSnap.exists()) {
-            const profile = userSnap.data().profile;
-            displayName = profile && typeof profile.displayName === 'string' ? profile.displayName : String(uid);
-          }
-          return {
-            uid: String(uid),
-            displayName: String(displayName)
-          };
-        }));
-        setPodMembers(memberInfos);
+
+        // Identify missing members
+        const missingUids = memberUids.filter(uid => !memberCache.current[uid]);
+
+        if (missingUids.length > 0) {
+          const newMemberInfos = await Promise.all(missingUids.map(async (uid) => {
+            const userDocRef = doc(db, 'users', String(uid));
+            try {
+              const userSnap = await getDoc(userDocRef);
+              let displayName = uid;
+              if (userSnap.exists()) {
+                const profile = userSnap.data().profile;
+                displayName = profile && typeof profile.displayName === 'string' ? profile.displayName : String(uid);
+              }
+              return { uid: String(uid), displayName: String(displayName) };
+            } catch (e) {
+              console.warn(`Failed to fetch profile for ${uid}`, e);
+              return { uid: String(uid), displayName: String(uid) };
+            }
+          }));
+
+          // Update cache
+          newMemberInfos.forEach(info => {
+            memberCache.current[info.uid] = info;
+          });
+        }
+
+        // Construct podMembers from cache
+        const currentMembers = memberUids.map(uid => memberCache.current[uid] || { uid: String(uid), displayName: String(uid) });
+        setPodMembers(currentMembers);
       }
     });
     return () => unsubscribe();

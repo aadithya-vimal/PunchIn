@@ -1,27 +1,3 @@
-// Connector for PodMemberList and PodCopyFeature
-function PodCopyConnector() {
-    const [copyUid, setCopyUid] = useState(null);
-    const [copyData, setCopyData] = useState(null);
-    const [modalOpen, setModalOpen] = useState(false);
-    return (
-        <>
-            <PodMemberList
-                onSelectMember={() => {}}
-                onCopyMemberData={(uid, data) => {
-                    setCopyUid(uid);
-                    setCopyData(data);
-                    setModalOpen(true);
-                }}
-            />
-            <PodCopyFeature
-                selectedUid={copyUid}
-                memberData={copyData}
-                modalOpen={modalOpen}
-                setModalOpen={setModalOpen}
-            />
-        </>
-    );
-}
 import NotesEditor from '../components/NotesEditor.jsx';
 import NotificationBanner from '../components/NotificationBanner.jsx';
 import AdminRecoveryPanel from '../components/AdminRecoveryPanel.jsx';
@@ -57,25 +33,71 @@ function PodBunkPlannerWithContext() {
     return <PodBunkPlanner getGroupBunkRecommendation={getGroupBunkRecommendation} />;
 }
 
+// Connector for PodMemberList and PodCopyFeature
+function PodCopyConnector() {
+    const [copyUid, setCopyUid] = useState(null);
+    const [copyData, setCopyData] = useState(null);
+    const [modalOpen, setModalOpen] = useState(false);
+    return (
+        <>
+            <PodMemberList
+                onSelectMember={() => { }}
+                onCopyMemberData={(uid, data) => {
+                    setCopyUid(uid);
+                    setCopyData(data);
+                    setModalOpen(true);
+                }}
+            />
+            <PodCopyFeature
+                selectedUid={copyUid}
+                memberData={copyData}
+                modalOpen={modalOpen}
+                setModalOpen={setModalOpen}
+            />
+        </>
+    );
+}
+
 const HomePage = () => {
     const { currentUser, profile, logout, activeModal, setActiveModal, isAdmin } = useContext(UserContext);
 
-        const [podsOpen, setPodsOpen] = useState(false);
-        const [infoOpen, setInfoOpen] = useState(false);
-        // Notes app state
-        const [notesOpen, setNotesOpen] = useState(false);
-        // Pods help modal state
-        const [podsHelpOpen, setPodsHelpOpen] = useState(false);
-        // Notification state
-        const [notification, setNotification] = useState({ message: '', type: 'info' });
+    const [podsOpen, setPodsOpen] = useState(false);
+    const [infoOpen, setInfoOpen] = useState(false);
+    // Notes app state
+    const [notesOpen, setNotesOpen] = useState(false);
+    // Pods help modal state
+    const [podsHelpOpen, setPodsHelpOpen] = useState(false);
+    // Notification state
+    const [notification, setNotification] = useState({ message: '', type: 'info' });
 
-        // Helper to show notification
-        const showNotification = (message, type = 'info', duration = 4000) => {
-            setNotification({ message, type });
-            if (duration > 0) {
-                setTimeout(() => setNotification({ message: '', type: 'info' }), duration);
+    // Bug #2 Fix: Add missing state declarations for notes functionality
+    const [notebooks, setNotebooks] = useState([]);
+    const [newNotebookName, setNewNotebookName] = useState('');
+    const [noteInputs, setNoteInputs] = useState({});
+    const [editingNote, setEditingNote] = useState({ notebookId: null, noteIdx: null });
+    const [editNoteValue, setEditNoteValue] = useState('');
+    const [adminPanelOpen, setAdminPanelOpen] = useState(false);
+
+    // Helper to show notification
+    const showNotification = (message, type = 'info', duration = 4000) => {
+        setNotification({ message, type });
+        if (duration > 0) {
+            setTimeout(() => setNotification({ message: '', type: 'info' }), duration);
+        }
+    };
+
+    // Bug #3 Fix: Add Firestore sync for notebooks
+    useEffect(() => {
+        if (!currentUser) return;
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                setNotebooks(data.notebooks || []);
             }
-        };
+        });
+        return () => unsubscribe();
+    }, [currentUser]);
 
     // Notes app handlers
     const handleCreateNotebook = (e) => {
@@ -135,7 +157,6 @@ const HomePage = () => {
             setDoc(userDocRef, { notebooks: updated }, { merge: true });
         }
     };
-    const [adminPanelOpen, setAdminPanelOpen] = useState(false);
 
     return (
         <div className="gradient-bg min-h-screen text-white flex flex-col">
@@ -144,28 +165,28 @@ const HomePage = () => {
             {activeModal === 'editSubjects' && <EditSubjectsModal />}
             {activeModal === 'timetable' && <TimetableModal />}
 
-                        <div className="fixed top-6 right-6 z-50 flex items-center gap-3">
-                                <button onClick={() => setActiveModal('profile')} title="Profile & Settings" className="bg-gray-500 hover:bg-gray-600 text-white p-3 rounded-full"><i className="fas fa-user-cog"></i></button>
-                                <button onClick={logout} title="Logout" className="bg-red-500 hover:bg-red-600 text-white p-3 rounded-full"><i className="fas fa-sign-out-alt"></i></button>
-                                {isAdmin && (
-                                    <button onClick={() => setAdminPanelOpen(true)} title="Admin Recovery Panel" className="bg-yellow-700 hover:bg-yellow-800 text-white p-3 rounded-full"><i className="fas fa-tools"></i></button>
-                                )}
-                        </div>
-                        {adminPanelOpen && (
-                            <div className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center">
-                                <div className="relative w-full max-w-2xl">
-                                    <button onClick={() => setAdminPanelOpen(false)} className="absolute top-4 right-4 text-xl bg-gray-800 hover:bg-gray-600 text-white rounded-full px-3 py-1">&times;</button>
-                                    <AdminRecoveryPanel />
-                                </div>
-                            </div>
-                        )}
+            <div className="fixed top-6 right-6 z-50 flex items-center gap-3">
+                <button onClick={() => setActiveModal('profile')} title="Profile & Settings" className="bg-gray-500 hover:bg-gray-600 text-white p-3 rounded-full"><i className="fas fa-user-cog"></i></button>
+                <button onClick={logout} title="Logout" className="bg-red-500 hover:bg-red-600 text-white p-3 rounded-full"><i className="fas fa-sign-out-alt"></i></button>
+                {isAdmin && (
+                    <button onClick={() => setAdminPanelOpen(true)} title="Admin Recovery Panel" className="bg-yellow-700 hover:bg-yellow-800 text-white p-3 rounded-full"><i className="fas fa-tools"></i></button>
+                )}
+            </div>
+            {adminPanelOpen && (
+                <div className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center">
+                    <div className="relative w-full max-w-2xl">
+                        <button onClick={() => setAdminPanelOpen(false)} className="absolute top-4 right-4 text-xl bg-gray-800 hover:bg-gray-600 text-white rounded-full px-3 py-1">&times;</button>
+                        <AdminRecoveryPanel />
+                    </div>
+                </div>
+            )}
 
             <DateTime />
 
             {/* Info Modal */}
             {infoOpen && (
                 <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center">
-                    <div className="bg-gradient-to-br from-indigo-950 via-indigo-900 to-indigo-800 text-white rounded-xl shadow-2xl p-8 max-w-3xl w-full relative overflow-y-auto border-2 border-indigo-700" style={{maxHeight: '90vh'}}>
+                    <div className="bg-gradient-to-br from-indigo-950 via-indigo-900 to-indigo-800 text-white rounded-xl shadow-2xl p-8 max-w-3xl w-full relative overflow-y-auto border-2 border-indigo-700" style={{ maxHeight: '90vh' }}>
                         <button onClick={() => setInfoOpen(false)} className="absolute top-4 right-4 text-xl bg-gray-800 hover:bg-gray-600 text-white rounded-full px-3 py-1">&times;</button>
                         <h2 className="text-3xl font-bold mb-4 text-gradient">Punch.In App Guide & Help</h2>
                         <ul className="list-disc ml-6 space-y-3 text-lg">
@@ -197,8 +218,6 @@ const HomePage = () => {
                     </div>
                 </div>
             )}
-
-            <DateTime />
 
             <main className="flex-grow">
                 <div className="container mx-auto px-4 py-8">
@@ -241,21 +260,21 @@ const HomePage = () => {
                                 </button>
                                 <span className="text-xs mt-1 text-white/70">Notes</span>
                             </div>
-                    {/* Notes App Modal */}
-                    {notesOpen && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-                            <div className="relative w-full max-w-4xl">
-                                <button
-                                    onClick={() => setNotesOpen(false)}
-                                    className="fixed top-8 right-8 z-50 text-xl bg-gray-900 hover:bg-yellow-600 text-white rounded-full px-3 py-1"
-                                    style={{ position: 'absolute' }}
-                                >
-                                    &times;
-                                </button>
-                                <NotesEditor onClose={() => setNotesOpen(false)} />
-                            </div>
-                        </div>
-                    )}
+                            {/* Notes App Modal */}
+                            {notesOpen && (
+                                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+                                    <div className="relative w-full max-w-4xl">
+                                        <button
+                                            onClick={() => setNotesOpen(false)}
+                                            className="fixed top-8 right-8 z-50 text-xl bg-gray-900 hover:bg-yellow-600 text-white rounded-full px-3 py-1"
+                                            style={{ position: 'absolute' }}
+                                        >
+                                            &times;
+                                        </button>
+                                        <NotesEditor onClose={() => setNotesOpen(false)} />
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </section>
                     <AttendanceOverview />
@@ -272,7 +291,7 @@ const HomePage = () => {
                     {/* Pods Modal */}
                     {podsOpen && (
                         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center">
-                            <div className="bg-gradient-to-br from-indigo-950 via-indigo-900 to-indigo-800 text-white rounded-xl shadow-2xl p-8 max-w-3xl w-full relative overflow-y-auto pt-24" style={{maxHeight: '90vh', backgroundColor: 'rgba(20, 22, 40, 0.98)'}}>
+                            <div className="bg-gradient-to-br from-indigo-950 via-indigo-900 to-indigo-800 text-white rounded-xl shadow-2xl p-8 max-w-3xl w-full relative overflow-y-auto pt-24" style={{ maxHeight: '90vh', backgroundColor: 'rgba(20, 22, 40, 0.98)' }}>
                                 <button onClick={() => setPodsOpen(false)} className="absolute top-4 right-4 text-xl bg-gray-800 hover:bg-gray-600 text-white rounded-full px-3 py-1">&times;</button>
                                 <PodProvider>
                                     <section>
@@ -284,7 +303,7 @@ const HomePage = () => {
                                         </div>
                                         {podsHelpOpen && (
                                             <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center">
-                                                <div className="bg-gradient-to-br from-indigo-950 via-indigo-900 to-indigo-800 text-white rounded-xl shadow-2xl p-8 max-w-xl w-full relative overflow-y-auto border-2 border-indigo-700" style={{maxHeight: '90vh'}}>
+                                                <div className="bg-gradient-to-br from-indigo-950 via-indigo-900 to-indigo-800 text-white rounded-xl shadow-2xl p-8 max-w-xl w-full relative overflow-y-auto border-2 border-indigo-700" style={{ maxHeight: '90vh' }}>
                                                     <button onClick={() => setPodsHelpOpen(false)} className="absolute top-4 right-4 text-xl bg-gray-800 hover:bg-gray-600 text-white rounded-full px-3 py-1">&times;</button>
                                                     <h2 className="text-2xl font-bold mb-3 text-gradient">Pods: Collaborative Academic Groups</h2>
                                                     <ul className="list-disc ml-6 space-y-2 text-base">
@@ -327,4 +346,5 @@ const HomePage = () => {
         </div>
     );
 };
+
 export default HomePage;

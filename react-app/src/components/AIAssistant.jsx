@@ -1,6 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { AIContext } from '../context/AIContext.jsx';
 import { UserContext } from '../context/UserContext.jsx';
+import ReactMarkdown from 'react-markdown';
 
 const AIAssistant = () => {
   const { getBunkRecommendation } = useContext(AIContext);
@@ -70,8 +71,8 @@ Provide a detailed, step-by-step, multi-point structured response with examples 
           disabled={isLoading}
           className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg flex items-center"
         >
-          {isLoading 
-            ? <i className="fas fa-spinner fa-spin mr-3"></i> 
+          {isLoading
+            ? <i className="fas fa-spinner fa-spin mr-3"></i>
             : <i className="fas fa-brain mr-3"></i>}
           {isLoading ? 'Analyzing...' : 'Get Insights & Bunk Plan'}
         </button>
@@ -79,9 +80,9 @@ Provide a detailed, step-by-step, multi-point structured response with examples 
 
       {/* --- FIX: Removed dangerouslySetInnerHTML --- */}
       <div
-        className="bg-black/20 p-6 rounded-lg min-h-[100px] text-white/80 leading-relaxed whitespace-pre-wrap ai-recommendation-content"
+        className="bg-black/20 p-6 rounded-lg min-h-[100px] text-white/80 leading-relaxed whitespace-pre-wrap ai-recommendation-content prose prose-invert max-w-none"
       >
-        {result || "Click the button to get detailed AI-powered bunk insights..."}
+        <ReactMarkdown>{result || "Click the button to get detailed AI-powered bunk insights..."}</ReactMarkdown>
       </div>
       {/* <div
         className="bg-black/20 p-6 rounded-lg min-h-[100px] text-white/80 leading-relaxed whitespace-pre-wrap ai-recommendation-content"
@@ -89,7 +90,7 @@ Provide a detailed, step-by-step, multi-point structured response with examples 
       />
       */}
       {/* --- END FIX --- */}
-      
+
     </div>
   );
 };
