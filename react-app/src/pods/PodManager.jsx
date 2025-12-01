@@ -30,6 +30,7 @@ const PodManager = () => {
     setAdminStatus('');
     try {
       const podDocRef = doc(db, 'pods', activePod);
+      if (!podData || !podData.members) throw new Error("Pod data not loaded.");
       const updatedMembers = podData.members.filter(id => id !== uid);
       await updateDoc(podDocRef, { members: updatedMembers });
       setAdminStatus('Member removed!');

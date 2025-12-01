@@ -32,6 +32,7 @@ export const UserProvider = ({ children }) => {
 
   // --- FIX: Debounce timer for attendance input fields ---
   const attendanceSaveTimer = useRef(null);
+  const attendanceDataRef = useRef(attendanceData); // Track latest data for debouncer
   // ---
 
   // Function definitions
@@ -157,7 +158,6 @@ export const UserProvider = ({ children }) => {
         const unsubscribeData = onSnapshot(userDocRef, (docSnap) => {
           // Bug #16 Fix: Don't overwrite local state if there are pending updates
           if (pendingUpdates.size > 0) {
-            console.log("Skipping Firestore update due to pending local changes");
             return;
           }
 
@@ -179,6 +179,7 @@ export const UserProvider = ({ children }) => {
   }, [pendingUpdates.size]); // Re-run listener logic when pending updates clear
 
   useEffect(() => {
+    attendanceDataRef.current = attendanceData; // Keep ref in sync
     localStorage.setItem('attendanceData', JSON.stringify(attendanceData));
   }, [attendanceData]);
 
@@ -195,14 +196,15 @@ export const UserProvider = ({ children }) => {
   };
 
   // --- PERFORMANCE FIX: Debouncer function ---
-  const queueAttendanceSave = (newData) => {
+  const queueAttendanceSave = () => {
     // Clear existing timer
     if (attendanceSaveTimer.current) {
       clearTimeout(attendanceSaveTimer.current);
     }
     // Set new timer to save after 1.5 seconds
     attendanceSaveTimer.current = setTimeout(() => {
-      saveAttendanceDataToFirebase(newData);
+      // Always save the LATEST data from the ref
+      saveAttendanceDataToFirebase(attendanceDataRef.current);
     }, 1500);
   };
 
@@ -213,16 +215,28 @@ export const UserProvider = ({ children }) => {
         updated[index] = { attended: '', total: '', requiredPerc: 75, dailyStatus: {} };
       }
       updated[index][field] = value;
-
-      // --- PERFORMANCE FIX ---
-      // Don't save immediately. Queue the save.
-      queueAttendanceSave(updated);
-      // ---
-
       return updated;
     });
+    // --- PERFORMANCE FIX ---
+    // Don't save immediately. Queue the save.
+    queueAttendanceSave();
+    // ---
   };
 
+  // --- FIX: Granular Update Helper ---
+  const saveSubjectAttendance = async (subjectIndex, newSubjectData) => {
+    if (!currentUser) return;
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    try {
+      // Update ONLY the specific subject's index in the map
+      await updateDoc(userDocRef, {
+        [`attendanceData.${subjectIndex}`]: newSubjectData
+      });
+    } catch (e) {
+      console.error("Error saving subject attendance:", e);
+    }
+  };
+  // ---
 
   const punchIn = (subjectIndex, period, status) => {
     // Bug #16 Fix: Deduplication
@@ -232,45 +246,54 @@ export const UserProvider = ({ children }) => {
     // Add to pending updates
     setPendingUpdates(prev => new Set(prev).add(updateKey));
 
-    setAttendanceData(prev => {
-      const todayDate = new Date().toISOString().slice(0, 10);
-      const updated = { ...prev };
-      const oldData = prev[subjectIndex] || { attended: 0, total: 0, requiredPerc: 75, dailyStatus: {} };
-      let attended = Number(oldData.attended) || 0;
-      let total = Number(oldData.total) || 0;
-      // Deep clone dailyStatus
-      const dailyStatus = JSON.parse(JSON.stringify(oldData.dailyStatus || {}));
-      const day = dailyStatus[todayDate] ? { ...dailyStatus[todayDate] } : {};
+    const todayDate = new Date().toISOString().slice(0, 10);
+    const oldData = attendanceData[subjectIndex] || { attended: 0, total: 0, requiredPerc: 75, dailyStatus: {} };
+    let attended = Number(oldData.attended) || 0;
+    let total = Number(oldData.total) || 0;
+    const dailyStatus = JSON.parse(JSON.stringify(oldData.dailyStatus || {}));
+    const day = dailyStatus[todayDate] ? { ...dailyStatus[todayDate] } : {};
 
-      // Only update if not already set for this period
-      if (!day[period]) {
-        day[period] = status;
-        dailyStatus[todayDate] = day;
-        if (status === 'attended') {
-          attended += 1;
-          total += 1;
-        } else if (status === 'bunked') {
-          total += 1;
-        }
-      }
-
-      updated[subjectIndex] = {
-        ...oldData,
-        attended,
-        total,
-        dailyStatus
-      };
-
-      // Save immediately and clear pending status when done
-      saveAttendanceDataToFirebase(updated).finally(() => {
-        setPendingUpdates(prev => {
-          const next = new Set(prev);
-          next.delete(updateKey);
-          return next;
-        });
+    if (day[period]) {
+      // Already punched (maybe via another device, or race).
+      // But pendingUpdates check passed.
+      // If local state says punched, we stop.
+      setPendingUpdates(prev => {
+        const next = new Set(prev);
+        next.delete(updateKey);
+        return next;
       });
+      return;
+    }
 
-      return updated;
+    day[period] = status;
+    dailyStatus[todayDate] = day;
+    if (status === 'attended') {
+      attended += 1;
+      total += 1;
+    } else if (status === 'bunked') {
+      total += 1;
+    }
+
+    const updatedSubjectData = {
+      ...oldData,
+      attended,
+      total,
+      dailyStatus
+    };
+
+    // 1. Update Local State
+    setAttendanceData(prev => ({
+      ...prev,
+      [subjectIndex]: updatedSubjectData
+    }));
+
+    // 2. Save to Firestore
+    saveSubjectAttendance(subjectIndex, updatedSubjectData).finally(() => {
+      setPendingUpdates(prev => {
+        const next = new Set(prev);
+        next.delete(updateKey);
+        return next;
+      });
     });
   };
 
@@ -282,50 +305,57 @@ export const UserProvider = ({ children }) => {
     // Add to pending updates
     setPendingUpdates(prev => new Set(prev).add(updateKey));
 
-    setAttendanceData(prev => {
-      const todayDate = new Date().toISOString().slice(0, 10);
-      const updated = { ...prev };
-      const oldData = prev[subjectIndex] || { attended: 0, total: 0, requiredPerc: 75, dailyStatus: {} };
-      let attended = Number(oldData.attended) || 0;
-      let total = Number(oldData.total) || 0;
-      // Deep clone dailyStatus
-      const dailyStatus = JSON.parse(JSON.stringify(oldData.dailyStatus || {}));
-      const day = dailyStatus[todayDate] ? { ...dailyStatus[todayDate] } : {};
+    const todayDate = new Date().toISOString().slice(0, 10);
+    const oldData = attendanceData[subjectIndex] || { attended: 0, total: 0, requiredPerc: 75, dailyStatus: {} };
+    let attended = Number(oldData.attended) || 0;
+    let total = Number(oldData.total) || 0;
+    const dailyStatus = JSON.parse(JSON.stringify(oldData.dailyStatus || {}));
+    const day = dailyStatus[todayDate] ? { ...dailyStatus[todayDate] } : {};
 
-      // Only undo if set for this period
-      if (day[period]) {
-        const lastStatus = day[period];
-        delete day[period];
-        if (Object.keys(day).length === 0) {
-          delete dailyStatus[todayDate];
-        } else {
-          dailyStatus[todayDate] = day;
-        }
-        if (lastStatus === 'attended' && attended > 0 && total > 0) {
-          attended -= 1;
-          total -= 1;
-        } else if (lastStatus === 'bunked' && total > 0) {
-          total -= 1;
-        }
-      }
-
-      updated[subjectIndex] = {
-        ...oldData,
-        attended,
-        total,
-        dailyStatus
-      };
-
-      // Save immediately and clear pending status when done
-      saveAttendanceDataToFirebase(updated).finally(() => {
-        setPendingUpdates(prev => {
-          const next = new Set(prev);
-          next.delete(updateKey);
-          return next;
-        });
+    if (!day[period]) {
+      // Nothing to undo
+      setPendingUpdates(prev => {
+        const next = new Set(prev);
+        next.delete(updateKey);
+        return next;
       });
+      return;
+    }
 
-      return updated;
+    const lastStatus = day[period];
+    delete day[period];
+    if (Object.keys(day).length === 0) {
+      delete dailyStatus[todayDate];
+    } else {
+      dailyStatus[todayDate] = day;
+    }
+    if (lastStatus === 'attended' && attended > 0 && total > 0) {
+      attended -= 1;
+      total -= 1;
+    } else if (lastStatus === 'bunked' && total > 0) {
+      total -= 1;
+    }
+
+    const updatedSubjectData = {
+      ...oldData,
+      attended,
+      total,
+      dailyStatus
+    };
+
+    // 1. Update Local State
+    setAttendanceData(prev => ({
+      ...prev,
+      [subjectIndex]: updatedSubjectData
+    }));
+
+    // 2. Save to Firestore
+    saveSubjectAttendance(subjectIndex, updatedSubjectData).finally(() => {
+      setPendingUpdates(prev => {
+        const next = new Set(prev);
+        next.delete(updateKey);
+        return next;
+      });
     });
   };
 
