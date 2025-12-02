@@ -3,6 +3,7 @@ import { UserContext } from '../context/UserContext.jsx';
 
 const ProfileModal = () => {
   const { profile, currentUser, saveData, closeModal, getProfileStats, setSubjects, setTimetable } = useContext(UserContext);
+  
   const [displayName, setDisplayName] = useState(profile.displayName || '');
   const stats = getProfileStats();
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -43,8 +44,9 @@ const ProfileModal = () => {
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 rounded-xl p-8 w-full max-w-lg flex flex-col">
+      <div className="bg-gray-900 rounded-xl p-8 w-full max-w-lg flex flex-col max-h-[90vh] overflow-y-auto">
         <h2 className="text-2xl font-bold mb-6">Profile & Settings</h2>
+        
         <div className="mb-6">
           <label className="block text-sm font-medium text-white/70">Display Name</label>
           <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="mt-1 block w-full bg-white/10 border rounded-md px-3 py-2 text-white" />
@@ -53,6 +55,7 @@ const ProfileModal = () => {
           <label className="block text-sm font-medium text-white/70">Email</label>
           <p className="mt-1 text-white/90">{currentUser.email}</p>
         </div>
+
         <div className="mb-6">
             <h3 className="font-semibold text-lg mb-3 border-b border-white/10 pb-2">Your Stats</h3>
             <div className="grid grid-cols-2 gap-4 text-center">
@@ -66,34 +69,36 @@ const ProfileModal = () => {
                 </div>
             </div>
         </div>
-        <div className="flex flex-col gap-3 mt-8">
+
+        <div className="flex flex-col gap-3 mt-4">
           <div className="flex justify-end gap-3">
             <button onClick={closeModal} className="px-4 py-2 rounded-lg border border-white/20 hover:bg-white/10">Cancel</button>
             <button onClick={handleSave} className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg">Save Changes</button>
           </div>
-          <div className="mt-6">
+          
+          <div className="mt-6 pt-6 border-t border-white/10">
             <button
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg w-full"
+              className="bg-red-600/80 hover:bg-red-700 text-white px-4 py-2 rounded-lg w-full text-sm"
               onClick={() => setDeleteConfirm(true)}
               disabled={deleteConfirm || deleteFinalConfirm}
             >Delete Timetable & Subject List</button>
+            
             {deleteConfirm && !deleteFinalConfirm && (
-              <div className="mt-3 text-yellow-300 text-center">Are you sure? This will permanently delete your timetable and subject list. Confirm again in {deleteCountdown} seconds...</div>
+              <div className="mt-3 text-yellow-300 text-center text-sm">Are you sure? This is permanent. Confirm in {deleteCountdown}s...</div>
             )}
             {deleteFinalConfirm && (
               <div className="mt-3 flex flex-col items-center">
-                <div className="text-yellow-400 mb-2">Final confirmation: This action cannot be undone.</div>
                 <button
-                  className="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-lg"
+                  className="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-lg w-full"
                   onClick={handleDeleteData}
-                >Yes, Delete My Data</button>
+                >Yes, Permanently Delete</button>
                 <button
-                  className="mt-2 px-4 py-2 rounded-lg border border-white/20 hover:bg-white/10"
+                  className="mt-2 text-white/60 text-sm hover:text-white"
                   onClick={() => { setDeleteConfirm(false); setDeleteFinalConfirm(false); setDeleteCountdown(10); }}
                 >Cancel</button>
               </div>
             )}
-            {deleteStatus && <div className="mt-3 text-green-400 text-center">{deleteStatus}</div>}
+            {deleteStatus && <div className="mt-3 text-green-400 text-center text-sm">{deleteStatus}</div>}
           </div>
         </div>
       </div>
