@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { UserContext } from '../context/UserContext.jsx';
 
-const InputForm = ({ subjectsToRender }) => {
+const InputForm = ({ subjectsToRender, onEdit }) => {
   const { subjects, attendanceData, updateAttendanceData } = useContext(UserContext);
 
   if (subjectsToRender.length === 0) {
@@ -27,6 +27,9 @@ const InputForm = ({ subjectsToRender }) => {
       // Convert to number if not empty, else set to empty string
       const newValue = value === '' ? '' : Number(value);
       updateAttendanceData(index, field, newValue);
+      
+      // Trigger the onEdit callback if provided (tells parent to clear old results)
+      if (onEdit) onEdit();
     }
   };
 

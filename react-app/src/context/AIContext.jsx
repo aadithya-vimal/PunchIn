@@ -1,82 +1,91 @@
 import React, { createContext, useContext } from 'react';
-import { UserContext } from './UserContext';
-import { functions } from '../firebase/config';
-import { httpsCallable } from 'firebase/functions';
+import Groq from "groq-sdk";
 
 export const AIContext = createContext();
 
-// Cloud Function reference
-const callGeminiFunction = httpsCallable(functions, 'callGemini');
+// Initialize Groq Client
+// dangerouslyAllowBrowser is required because we are calling it from React directly
+const groq = new Groq({ 
+    apiKey: import.meta.env.VITE_GROQ_API_KEY,
+    dangerouslyAllowBrowser: true 
+});
 
-const callGeminiAPI = async (promptOrData) => {
+const callLlamaAPI = async (promptOrData) => {
     try {
-        let payload;
+        let messages = [];
+
+        // Logic to construct the messages based on input type
         if (typeof promptOrData === 'string') {
-            // Legacy support: if a string is passed, use custom_prompt type
-            payload = {
-                promptType: 'custom_prompt',
-                data: { prompt: promptOrData }
-            };
+            // Case 1: Direct string prompt (Custom Prompt / Bunk Planner)
+            messages = [{ role: "user", content: promptOrData }];
         } else {
-            // Structured data
-            payload = promptOrData;
+            // Case 2: Structured Data object
+            const { promptType, data } = promptOrData;
+
+            if (promptType === 'simple_chat') {
+                const { query } = data;
+                messages = [
+                    { 
+                        role: "system", 
+                        content: "You are a concise academic assistant. Provide a very short, direct answer (max 3-4 sentences). Do not use markdown formatting like bold/italics, just plain text." 
+                    },
+                    { role: "user", content: query }
+                ];
+            } else if (promptType === 'result_insights') {
+                const { resultsText } = data;
+                messages = [
+                    {
+                        role: "system",
+                        content: "You are an encouraging academic advisor."
+                    },
+                    { 
+                        role: "user", 
+                        content: `Based on this calculation result: "${resultsText}", provide 2-3 sentences of encouraging, actionable advice in plain text.` 
+                    }
+                ];
+            } else {
+                // Fallback
+                messages = [{ role: "user", content: JSON.stringify(data) }];
+            }
         }
 
-        const result = await callGeminiFunction(payload);
-        const text = result.data.result;
+        // Call Llama 3.1 8B (Instant speed)
+        const chatCompletion = await groq.chat.completions.create({
+            messages: messages,
+            model: "llama-3.1-8b-instant",
+            temperature: 0.7,
+            max_tokens: 1024,
+        });
 
-        if (!text) throw new Error("Invalid response from AI.");
-        return text;
+        return chatCompletion.choices[0]?.message?.content || "";
 
     } catch (error) {
-        console.error("Gemini API call failed:", error);
-        return `Error: Could not get a response from the AI. ${error.message}`;
+        console.error("Groq/Llama API call failed:", error);
+        return "Sorry, I couldn't reach the AI. Please check your internet connection or API key.";
     }
 };
 
 export const AIProvider = ({ children }) => {
-    const { subjects } = useContext(UserContext);
-
     const getBunkRecommendation = async (prompt) => {
-        if (!prompt) {
-            return 'Error: No prompt provided for bunk recommendation.';
-        }
-        // Supports both string prompt (legacy/custom) and structured object if needed in future
-        return await callGeminiAPI(prompt);
-    };
-
-    const getStudyPlan = async (goal) => {
-        if (!goal.trim()) return "Please enter a study goal.";
-        // We can switch to structured call here if we want, but keeping string for consistency with existing logic
-        // or we can use the new 'study_planner' type:
-        /*
-        return await callGeminiAPI({
-            promptType: 'study_planner',
-            data: { subjects, goal }
-        });
-        */
-        // However, the current prompt in AIContext was:
-        const prompt = `My study goal is: "${goal}". My subjects are: ${subjects.join(', ')}. Generate a concise, weekly study plan in Markdown.`;
-        return await callGeminiAPI(prompt);
-    };
-
-    const getTopicSuggestions = async (subject) => {
-        if (!subject) return "Please select a subject.";
-        // Using structured call for this one as an example/optimization
-        return await callGeminiAPI({
-            promptType: 'topic_suggester',
-            data: { subject }
-        });
+        if (!prompt) return 'Error: No prompt provided.';
+        return await callLlamaAPI(prompt);
     };
 
     const getResultInsights = async (resultsText) => {
-        // Using structured call
-        return await callGeminiAPI({
+        return await callLlamaAPI({
             promptType: 'result_insights',
             data: { resultsText }
         });
     };
 
-    const value = { getBunkRecommendation, getStudyPlan, getTopicSuggestions, getResultInsights };
+    const askSimpleAI = async (query) => {
+        if (!query.trim()) return "Please enter a question.";
+        return await callLlamaAPI({
+            promptType: 'simple_chat',
+            data: { query }
+        });
+    };
+
+    const value = { getBunkRecommendation, getResultInsights, askSimpleAI };
     return <AIContext.Provider value={value}>{children}</AIContext.Provider>;
 };

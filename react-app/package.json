@@ -10,15 +10,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@heroicons/react": "^2.2.0",
+    "file-saver": "^2.0.5",
     "firebase": "^12.2.1",
+    "groq-sdk": "^0.37.0",
     "marked": "^16.2.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.9.1",
-    "react-toastify": "^11.0.5",
-    "file-saver": "^2.0.5",
-    "react-markdown": "^10.1.0"
+    "react-toastify": "^11.0.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",

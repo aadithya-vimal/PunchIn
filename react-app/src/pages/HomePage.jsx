@@ -14,8 +14,7 @@ import EditSubjectsModal from '../components/EditSubjectsModal.jsx';
 import TimetableModal from '../components/TimetableModal.jsx';
 import TimetableGlance from '../components/TimetableGlance.jsx';
 import AIAssistant from '../components/AIAssistant.jsx';
-import AIStudyPlanner from '../components/AIStudyPlanner.jsx';
-import AITopicSuggester from '../components/AITopicSuggester.jsx';
+import AskAI from '../components/AskAI.jsx'; // Changed import
 import DateTime from '../components/DateTime.jsx';
 import PodManager from '../pods/PodManager.jsx';
 import PodMemberList from '../pods/PodMemberList.jsx';
@@ -201,8 +200,7 @@ const HomePage = () => {
                             <li><strong>Adding Attendance Data:</strong> Use <span className="font-semibold text-indigo-400">All Subjects Attendance</span> to enter class data and required attendance percentage for each subject. The app tracks and updates your attendance automatically.</li>
                             <li><strong>Timetable Glance:</strong> View your weekly timetable at a glance, including all subjects and periods. Easily spot free slots and busy days.</li>
                             <li><strong>Daily Dashboard:</strong> See your daily attendance, upcoming classes, and quick stats for the day.</li>
-                            <li><strong>AI Study Planner:</strong> Get personalized study plans based on your attendance, timetable, and academic goals.</li>
-                            <li><strong>AI Topic Suggester:</strong> Receive topic suggestions for revision and improvement, tailored to your weak areas.</li>
+                            <li><strong>Quick AI Assist:</strong> Ask simple academic questions to get instant, concise answers.</li>
                             <li><strong>Collaborative Bunk Planner:</strong> Select pod members to find the best day for a group bunk. The planner analyzes everyone's schedule and attendance to minimize academic risk. All names are shown for clarity.</li>
                             <li><strong>Leaderboard & Badges:</strong> View all pod members' attendance and earn badges for high performance and engagement. Compete with friends for top spots.</li>
                             <li><strong>Profile & Settings:</strong> Update your display name, view your email, and manage your academic data securely.</li>
@@ -280,8 +278,9 @@ const HomePage = () => {
                     <AttendanceOverview />
                     <TimetableGlance />
                     <AIAssistant />
-                    <AIStudyPlanner />
-                    <AITopicSuggester />
+                    
+                    {/* Added the new AskAI component here */}
+                    <AskAI />
 
                     <div className="flex flex-col lg:flex-row gap-8">
                         <SubjectList />

@@ -17,6 +17,7 @@ exports.callGemini = onCall({ cors: true }, async (request) => {
 
     const { promptType, data } = request.data;
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    // Flash model is faster and cheaper (often free tier eligible)
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     try {
@@ -37,19 +38,6 @@ exports.callGemini = onCall({ cors: true }, async (request) => {
         
         Keep the response concise, fun, and actionable. Use bullet points.
       `;
-        } else if (promptType === "study_planner") {
-            const { subjects, goal } = data;
-            prompt = `
-        Create a study plan for the following subjects: ${JSON.stringify(subjects)}.
-        My goal is: "${goal}".
-        Allocate time based on urgency and provide a daily schedule.
-      `;
-        } else if (promptType === "topic_suggester") {
-            const { subject } = data;
-            prompt = `
-        Suggest 5 interesting and important topics to study for the subject: ${subject}.
-        Focus on high-yield concepts often asked in exams.
-      `;
         } else if (promptType === "result_insights") {
             const { resultsText } = data;
             prompt = `Based on this calculation result: "${resultsText}", provide 2-3 sentences of encouraging, actionable advice in plain text.`;
@@ -61,6 +49,17 @@ exports.callGemini = onCall({ cors: true }, async (request) => {
          Suggest a specific day of the week and explain why.
          Keep it fun and collaborative.
        `;
+        } else if (promptType === "simple_chat") {
+            // New compact AI handler
+            const { query } = data;
+            prompt = `
+        You are a concise academic assistant. 
+        User Query: "${query}"
+        
+        Provide a very short, direct answer (max 3-4 sentences). 
+        Do not use markdown formatting like bold/italics, just plain text.
+        If the query is not related to studies/attendance, politely refuse.
+      `;
         } else if (promptType === "custom_prompt") {
             prompt = data.prompt;
         } else {

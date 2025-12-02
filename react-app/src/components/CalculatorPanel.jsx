@@ -25,6 +25,8 @@ const CalculatorPanel = () => {
   const [isInsightLoading, setIsInsightLoading] = useState(false);
   const [lastCalcSummary, setLastCalcSummary] = useState('');
   const [inputFormKey, setInputFormKey] = useState(Date.now());
+  // New state for showing the recalculation prompt
+  const [staleMessage, setStaleMessage] = useState('');
 
   const toNumber = (str, defaultVal = 0) => {
     const n = Number(str);
@@ -51,6 +53,7 @@ const CalculatorPanel = () => {
 
   const handleCalculate = () => {
     setInsight('');
+    setStaleMessage(''); // Clear the stale message
     const subjectsToCalc = currentMode.includes('all') ? subjects.map((_, i) => i) : selectedSubjects;
     const isBunkMode = currentMode.includes('bunk');
     let summaryValue = 0;
@@ -108,7 +111,25 @@ ${JSON.stringify(resultsData, null, 2)}
     setSelectedSubjects([]);       // clear selected subjects
     setResultsData(null);          // clear calculation results
     setInsight('');                // clear AI insights
+    setStaleMessage('');           // clear stale message
     setInputFormKey(Date.now());  // force remount InputForm to reset fields
+  };
+
+  const handleModeChange = (newMode) => {
+      setCurrentMode(newMode);
+      setResultsData(null);
+      setStaleMessage('');
+      setInsight('');
+  }
+
+  // Called whenever an input field is edited in InputForm
+  const handleDataEdit = () => {
+    // Only clear results and show message if we actually have results displayed
+    if (resultsData || insight) {
+      setResultsData(null);
+      setInsight('');
+      setStaleMessage("Data modified. Press 'Calculate' again.");
+    }
   };
 
   const subjectsToRender = currentMode.includes('all') ? subjects.map((_, i) => i) : selectedSubjects;
@@ -121,7 +142,7 @@ ${JSON.stringify(resultsData, null, 2)}
           <div className="grid grid-cols-1 sm:grid-cols-2 mb-10" style={{ gap: '0.5rem' }}>
             <StyledButton
               active={currentMode === 'attend-single'}
-              onClick={() => { setCurrentMode('attend-single'); setResultsData(null); }}
+              onClick={() => handleModeChange('attend-single')}
               className="px-6 py-4 text-lg transition-transform duration-300 hover:scale-105 hover:shadow-lg hover:text-indigo-50 rounded-xl"
               style={{ margin: '0.25rem', transformOrigin: 'center' }}
             >
@@ -134,7 +155,7 @@ ${JSON.stringify(resultsData, null, 2)}
 
             <StyledButton
               active={currentMode === 'attend-all'}
-              onClick={() => { setCurrentMode('attend-all'); setResultsData(null); }}
+              onClick={() => handleModeChange('attend-all')}
               className="px-6 py-4 text-lg transition-transform duration-300 hover:scale-105 hover:shadow-lg hover:text-indigo-50 rounded-xl"
               style={{ margin: '0.25rem', transformOrigin: 'center' }}
             >
@@ -147,7 +168,7 @@ ${JSON.stringify(resultsData, null, 2)}
 
             <StyledButton
               active={currentMode === 'bunk-single'}
-              onClick={() => { setCurrentMode('bunk-single'); setResultsData(null); }}
+              onClick={() => handleModeChange('bunk-single')}
               className="px-6 py-4 text-lg transition-transform duration-300 hover:scale-105 hover:shadow-lg hover:text-indigo-50 rounded-xl"
               style={{ margin: '0.25rem', transformOrigin: 'center' }}
             >
@@ -160,7 +181,7 @@ ${JSON.stringify(resultsData, null, 2)}
 
             <StyledButton
               active={currentMode === 'bunk-all'}
-              onClick={() => { setCurrentMode('bunk-all'); setResultsData(null); }}
+              onClick={() => handleModeChange('bunk-all')}
               className="px-6 py-4 text-lg transition-transform duration-300 hover:scale-105 hover:shadow-lg hover:text-indigo-50 rounded-xl"
               style={{ margin: '0.25rem', transformOrigin: 'center' }}
             >
@@ -192,34 +213,25 @@ ${JSON.stringify(resultsData, null, 2)}
         </div>
 
         <div className="mb-8">
-          <InputForm key={inputFormKey} subjectsToRender={subjectsToRender} />
+          <InputForm key={inputFormKey} subjectsToRender={subjectsToRender} onEdit={handleDataEdit} />
+          
+          {/* Show Stale Message if data changed */}
+          {staleMessage && (
+              <div className="mt-8 p-4 bg-yellow-500/20 border border-yellow-500/50 rounded-lg text-center text-yellow-200 font-semibold animate-pulse">
+                  <i className="fas fa-exclamation-triangle mr-2"></i>
+                  {staleMessage}
+              </div>
+          )}
+
           {resultsData && <Results resultsData={resultsData} />}
+          
           {resultsData && (
             <div className="mt-6">
               <h3 className="text-xl font-bold mb-4 text-gradient">✨ AI Result Insights</h3>
               
-              {/* --- FIX: Removed dangerouslySetInnerHTML --- */}
-              <div
-                className="bg-black/20 p-6 rounded-lg min-h-[100px] ai-recommendation-content whitespace-pre-wrap"
-              >
+              <div className="bg-black/20 p-6 rounded-lg min-h-[100px] ai-recommendation-content whitespace-pre-wrap">
                 {insight || "Click the button for AI advice."}
               </div>
-              {/*
-              <div
-                className="bg-black/20 p-6 rounded-lg min-h-[100px] ai-recommendation-content"
-                style={{ whiteSpace: 'pre-wrap' }}
-                dangerouslySetInnerHTML={{
-                  __html: insight
-                    ? insight.replace(
-                        /(\bSubject Name:\s*)(\w+)/gi,
-                        (match, p1, p2) =>
-                          `${p1}<strong style="font-size:1.25rem; color:#fff;">${p2}</strong>`
-                      )
-                    : "<p>Click the button for AI advice.</p>",
-                }}
-              />
-              */}
-              {/* --- END FIX --- */}
 
               <StyledButton
                 onClick={handleGetInsight}
