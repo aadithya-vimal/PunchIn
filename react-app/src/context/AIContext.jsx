@@ -14,30 +14,34 @@ const callLlamaAPI = async (promptOrData) => {
     try {
         let messages = [];
 
-        // Logic to construct the messages based on input type
         if (typeof promptOrData === 'string') {
-            // Case 1: Direct string prompt
             messages = [{ role: "user", content: promptOrData }];
         } else {
-            // Case 2: Structured Data object
             const { promptType, data } = promptOrData;
 
             if (promptType === 'simple_chat') {
                 const { query, context } = data;
                 
-                // Construct the system prompt with user data
                 const systemPrompt = `
-You are a concise academic assistant for a student.
+You are a smart academic assistant.
 Current Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
 
-USER DATA CONTEXT:
+USER DATA:
 ${context || "No data available."}
 
-INSTRUCTIONS:
-1. Answer the user's query based on the data above.
-2. Be very short and direct (max 3-4 sentences).
-3. Do not use markdown formatting (no bold/italics), just plain text.
-4. If asked about "tomorrow" or "today", check the specific day in the Timetable data.
+INSTRUCTIONS FOR CALCULATIONS:
+1. **OVERALL ATTENDANCE:** ALWAYS start with the "OVERALL AGGREGATE STATS" provided in the data. DO NOT sum up individual subjects yourself (this causes double-counting errors).
+   - Formula: (Current Total Attended) / (Current Total Classes + New Classes)
+
+2. **SCENARIOS (Bunk vs Attend):**
+   - Identify the day and count how many periods are in the timetable for that day.
+   - If Bunking: Add that count to the 'Total Classes' only. 'Attended' stays the same.
+   - If Attending: Add that count to BOTH 'Total Classes' and 'Attended'.
+
+3. **OUTPUT:**
+   - Be concise.
+   - Show the math: "Current Overall is X%. If you bunk 6 periods, it becomes Y / Z = New%."
+   - Do not use markdown bold/italics.
 `;
 
                 messages = [
@@ -47,26 +51,18 @@ INSTRUCTIONS:
             } else if (promptType === 'result_insights') {
                 const { resultsText } = data;
                 messages = [
-                    {
-                        role: "system",
-                        content: "You are an encouraging academic advisor."
-                    },
-                    { 
-                        role: "user", 
-                        content: `Based on this calculation result: "${resultsText}", provide 2-3 sentences of encouraging, actionable advice in plain text.` 
-                    }
+                    { role: "system", content: "You are an encouraging academic advisor." },
+                    { role: "user", content: `Based on this calculation result: "${resultsText}", provide 2-3 sentences of encouraging, actionable advice in plain text.` }
                 ];
             } else {
-                // Fallback
                 messages = [{ role: "user", content: JSON.stringify(data) }];
             }
         }
 
-        // Call Llama 3.1 8B (Instant speed)
         const chatCompletion = await groq.chat.completions.create({
             messages: messages,
             model: "llama-3.1-8b-instant",
-            temperature: 0.7,
+            temperature: 0.2, // Very low temp for consistent math
             max_tokens: 1024,
         });
 
@@ -79,7 +75,6 @@ INSTRUCTIONS:
 };
 
 export const AIProvider = ({ children }) => {
-    // Consume UserContext to get real-time data
     const { subjects, attendanceData, timetable } = useContext(UserContext);
 
     const getBunkRecommendation = async (prompt) => {
@@ -97,19 +92,46 @@ export const AIProvider = ({ children }) => {
     const askSimpleAI = async (query) => {
         if (!query.trim()) return "Please enter a question.";
 
-        // Format the data nicely for the AI to understand
+        // --- PRE-CALCULATE AGGREGATES IN JS ---
+        let totalAttended = 0;
+        let totalClasses = 0;
+
         const formattedAttendance = subjects.map((sub, idx) => {
             const data = attendanceData[idx] || { attended: 0, total: 0 };
-            const pct = data.total ? ((data.attended / data.total) * 100).toFixed(1) : 0;
-            return `${sub}: ${data.attended}/${data.total} (${pct}%)`;
+            const att = Number(data.attended) || 0;
+            const tot = Number(data.total) || 0;
+            
+            // Sum up for overall
+            totalAttended += att;
+            totalClasses += tot;
+
+            const pct = tot ? ((att / tot) * 100).toFixed(1) : 0;
+            return `Subject: "${sub}" | Attended: ${att} | Total: ${tot} | Current: ${pct}%`;
         }).join('\n');
 
+        const overallPct = totalClasses ? ((totalAttended / totalClasses) * 100).toFixed(2) : 0;
+
+        // Simplify timetable format
+        let simplifiedTimetable = "";
+        Object.entries(timetable).forEach(([day, periods]) => {
+            const daySubjects = Object.values(periods).map(idx => subjects[idx]).filter(Boolean);
+            if (daySubjects.length > 0) {
+                simplifiedTimetable += `${day.toUpperCase()} (${daySubjects.length} periods): ${daySubjects.join(", ")}\n`;
+            }
+        });
+
+        // Pass clear aggregates to AI
         const contextString = `
-Subjects & Attendance:
+OVERALL AGGREGATE STATS:
+Total Attended: ${totalAttended}
+Total Classes Held: ${totalClasses}
+Current Overall Percentage: ${overallPct}%
+
+SUBJECT-WISE STATS:
 ${formattedAttendance}
 
-Weekly Timetable (Periods 1-8):
-${JSON.stringify(timetable, null, 2)}
+WEEKLY SCHEDULE:
+${simplifiedTimetable}
         `;
 
         return await callLlamaAPI({

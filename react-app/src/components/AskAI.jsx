@@ -28,7 +28,6 @@ const AskAI = () => {
       <div className="flex items-center gap-2 mb-3">
          <span className="text-xl">🤖</span>
          <h3 className="font-bold text-white text-lg">Quick AI Assist</h3>
-         <span className="text-xs text-white/50 ml-auto">Powered by Gemini Flash</span>
       </div>
       
       <form onSubmit={handleAsk} className="flex gap-2 mb-0">
