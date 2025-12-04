@@ -1,19 +1,13 @@
 import React, { createContext, useContext } from 'react';
-import Groq from "groq-sdk";
 import { UserContext } from './UserContext';
 
 export const AIContext = createContext();
 
-// Initialize Groq Client
-const groq = new Groq({ 
-    apiKey: import.meta.env.VITE_GROQ_API_KEY,
-    dangerouslyAllowBrowser: true 
-});
-
-const callLlamaAPI = async (promptOrData) => {
+const callSecureAI = async (promptOrData) => {
     try {
         let messages = [];
 
+        // --- 1. PROMPT CONSTRUCTION (Same Logic as before) ---
         if (typeof promptOrData === 'string') {
             messages = [{ role: "user", content: promptOrData }];
         } else {
@@ -30,19 +24,15 @@ USER DATA:
 ${context || "No data available."}
 
 MATH INSTRUCTIONS (STRICT):
-1. **BASELINE:** Always start with 'Total Attended' and 'Total Classes Held' from OVERALL AGGREGATE STATS. This is the user's CURRENT status (already includes everything up to now).
-2. **DO NOT DOUBLE COUNT:** Never add "past days" or "classes till Friday" if they are already in the past. Only add *future* classes based on the user's query.
-3. **FORMULA:**
-   - New % = (Current Attended + Future Attended) / (Current Total + Future Total) * 100
-4. **SANITY CHECK:** If your result is > 100%, you are wrong. Stop and recalculate. Attendance cannot exceed 100%.
+1. **BASELINE:** Always start with 'Total Attended' and 'Total Classes Held' from OVERALL AGGREGATE STATS.
+2. **DO NOT DOUBLE COUNT:** Never add "past days". Only add *future* classes based on the user's query.
+3. **FORMULA:** New % = (Current Attended + Future Attended) / (Current Total + Future Total) * 100
+4. **SANITY CHECK:** If result > 100%, recalculate.
 
 EXAMPLE:
 - Query: "If I attend Friday and bunk Saturday?"
-- Logic: Look at "UPCOMING CLASSES" section. 
-- Total = Current Total + Friday_Count + Saturday_Count.
-- Attended = Current Attended + Friday_Count (since Saturday is bunked).
+- Logic: Look at "UPCOMING CLASSES". Total = Current Total + Friday_Count + Saturday_Count. Attended = Current Attended + Friday_Count.
 `;
-
                 messages = [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: query }
@@ -58,18 +48,24 @@ EXAMPLE:
             }
         }
 
-        const chatCompletion = await groq.chat.completions.create({
-            messages: messages,
-            model: "llama-3.1-8b-instant",
-            temperature: 0.1, // Keep it logical
-            max_tokens: 1024,
+        // --- 2. SECURE CALL (Changed) ---
+        // We now call our own backend function /api/chat instead of Groq directly
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages })
         });
 
-        return chatCompletion.choices[0]?.message?.content || "";
+        if (!response.ok) {
+            throw new Error(`AI is currently busy or offline (Status: ${response.status})`);
+        }
+
+        const data = await response.json();
+        return data.choices?.[0]?.message?.content || "No response generated.";
 
     } catch (error) {
-        console.error("Groq/Llama API call failed:", error);
-        return "Sorry, I couldn't reach the AI. Please check your internet connection or API key.";
+        console.error("AI Security Proxy Error:", error);
+        return "Sorry, I couldn't reach the AI. Please try again in a moment.";
     }
 };
 
@@ -78,11 +74,11 @@ export const AIProvider = ({ children }) => {
 
     const getBunkRecommendation = async (prompt) => {
         if (!prompt) return 'Error: No prompt provided.';
-        return await callLlamaAPI(prompt);
+        return await callSecureAI(prompt);
     };
 
     const getResultInsights = async (resultsText) => {
-        return await callLlamaAPI({
+        return await callSecureAI({
             promptType: 'result_insights',
             data: { resultsText }
         });
@@ -91,7 +87,7 @@ export const AIProvider = ({ children }) => {
     const askSimpleAI = async (query) => {
         if (!query.trim()) return "Please enter a question.";
 
-        // 1. Calculate Aggregates
+        // --- DATA PREP (Same Logic as before) ---
         let totalAttended = 0;
         let totalClasses = 0;
 
@@ -107,7 +103,6 @@ export const AIProvider = ({ children }) => {
 
         const overallPct = totalClasses ? ((totalAttended / totalClasses) * 100).toFixed(2) : 0;
 
-        // 2. Pre-Calculate "Today" Scenarios
         const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
         const todayDate = new Date();
         const todayIndex = todayDate.getDay(); 
@@ -131,9 +126,7 @@ SCENARIOS FOR TODAY (${todayKey.toUpperCase()}):
             `;
         }
 
-        // 3. Calculate Upcoming Days (Remainder of Week)
         let upcomingScheduleStr = "";
-        // Loop from tomorrow until Saturday
         for (let i = todayIndex + 1; i <= 6; i++) {
             const dayName = daysOfWeek[i];
             const daySchedule = timetable[dayName] || {};
@@ -147,7 +140,6 @@ SCENARIOS FOR TODAY (${todayKey.toUpperCase()}):
             upcomingScheduleStr = "\nUPCOMING CLASSES THIS WEEK:\n" + upcomingScheduleStr;
         }
 
-        // 4. Construct Context
         const contextString = `
 OVERALL AGGREGATE STATS (CURRENT STATUS):
 Total Attended: ${totalAttended}
@@ -161,7 +153,7 @@ SUBJECT-WISE STATS:
 ${formattedAttendance}
         `;
 
-        return await callLlamaAPI({
+        return await callSecureAI({
             promptType: 'simple_chat',
             data: { 
                 query, 
