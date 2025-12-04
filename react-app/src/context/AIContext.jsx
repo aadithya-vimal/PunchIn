@@ -29,19 +29,13 @@ Current Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 
 USER DATA:
 ${context || "No data available."}
 
-INSTRUCTIONS FOR CALCULATIONS:
-1. **OVERALL ATTENDANCE:** ALWAYS start with the "OVERALL AGGREGATE STATS" provided in the data. DO NOT sum up individual subjects yourself (this causes double-counting errors).
+INSTRUCTIONS:
+1. **USE THE PRE-CALCULATED SCENARIOS:** If the user asks about "bunking today" or "attending today", DO NOT calculate it yourself. Look at the "PRE-CALCULATED SCENARIOS" section in the data and just state that number.
+2. **FOR OTHER DAYS:**
    - Formula: (Current Total Attended) / (Current Total Classes + New Classes)
-
-2. **SCENARIOS (Bunk vs Attend):**
-   - Identify the day and count how many periods are in the timetable for that day.
-   - If Bunking: Add that count to the 'Total Classes' only. 'Attended' stays the same.
-   - If Attending: Add that count to BOTH 'Total Classes' and 'Attended'.
-
-3. **OUTPUT:**
-   - Be concise.
-   - Show the math: "Current Overall is X%. If you bunk 6 periods, it becomes Y / Z = New%."
-   - Do not use markdown bold/italics.
+   - Do NOT sum up individual subject stats. Use the "OVERALL AGGREGATE STATS" totals.
+3. Be concise (max 3-4 sentences).
+4. Do not use markdown bold/italics.
 `;
 
                 messages = [
@@ -62,7 +56,7 @@ INSTRUCTIONS FOR CALCULATIONS:
         const chatCompletion = await groq.chat.completions.create({
             messages: messages,
             model: "llama-3.1-8b-instant",
-            temperature: 0.2, // Very low temp for consistent math
+            temperature: 0.1, // Near zero temp for rigid adherence to data
             max_tokens: 1024,
         });
 
@@ -92,7 +86,7 @@ export const AIProvider = ({ children }) => {
     const askSimpleAI = async (query) => {
         if (!query.trim()) return "Please enter a question.";
 
-        // --- PRE-CALCULATE AGGREGATES IN JS ---
+        // 1. Calculate Overall Aggregates
         let totalAttended = 0;
         let totalClasses = 0;
 
@@ -101,7 +95,6 @@ export const AIProvider = ({ children }) => {
             const att = Number(data.attended) || 0;
             const tot = Number(data.total) || 0;
             
-            // Sum up for overall
             totalAttended += att;
             totalClasses += tot;
 
@@ -111,7 +104,7 @@ export const AIProvider = ({ children }) => {
 
         const overallPct = totalClasses ? ((totalAttended / totalClasses) * 100).toFixed(2) : 0;
 
-        // Simplify timetable format
+        // 2. Format Timetable
         let simplifiedTimetable = "";
         Object.entries(timetable).forEach(([day, periods]) => {
             const daySubjects = Object.values(periods).map(idx => subjects[idx]).filter(Boolean);
@@ -120,12 +113,39 @@ export const AIProvider = ({ children }) => {
             }
         });
 
-        // Pass clear aggregates to AI
+        // 3. Pre-Calculate "Today" Scenarios (The Fix)
+        const todayKey = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+        const todaySchedule = timetable[todayKey] || {};
+        const classesTodayCount = Object.keys(todaySchedule).length;
+
+        let mathHint = "";
+        if (classesTodayCount > 0) {
+            // Scenario A: Bunk Everything Today
+            // Attended stays same, Total increases by count
+            const bunkTotal = totalClasses + classesTodayCount;
+            const bunkPct = bunkTotal > 0 ? ((totalAttended / bunkTotal) * 100).toFixed(2) : 0;
+            
+            // Scenario B: Attend Everything Today
+            // Both increase by count
+            const attendTotal = totalClasses + classesTodayCount;
+            const attendAttended = totalAttended + classesTodayCount;
+            const attendPct = attendTotal > 0 ? ((attendAttended / attendTotal) * 100).toFixed(2) : 0;
+
+            mathHint = `
+PRE-CALCULATED SCENARIOS FOR TODAY (${todayKey.toUpperCase()}):
+- Classes Scheduled Today: ${classesTodayCount}
+- If you BUNK all classes today: New Overall = ${bunkPct}%
+- If you ATTEND all classes today: New Overall = ${attendPct}%
+            `;
+        }
+
         const contextString = `
 OVERALL AGGREGATE STATS:
 Total Attended: ${totalAttended}
 Total Classes Held: ${totalClasses}
 Current Overall Percentage: ${overallPct}%
+
+${mathHint}
 
 SUBJECT-WISE STATS:
 ${formattedAttendance}
