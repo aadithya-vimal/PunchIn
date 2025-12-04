@@ -1,3 +1,4 @@
+````markdown
 # 🎓 Punch.In Scholar Companion
 
 A modern, feature-rich attendance tracking and academic management application built with React, Firebase, and Tailwind CSS.
@@ -5,6 +6,7 @@ A modern, feature-rich attendance tracking and academic management application b
 ![Punch.In Scholar Companion](https://img.shields.io/badge/React-19.1.1-blue)
 ![Firebase](https://img.shields.io/badge/Firebase-12.2.1-orange)
 ![Vite](https://img.shields.io/badge/Vite-7.1.5-purple)
+![License](https://img.shields.io/badge/License-AGPL%20v3-red)
 
 ## ✨ Features
 
@@ -16,6 +18,7 @@ A modern, feature-rich attendance tracking and academic management application b
 - 💾 **Real-time Sync** - All data synced with Firebase Firestore
 - 🎨 **Beautiful UI** - Modern gradient design with smooth animations
 - 📱 **Responsive Design** - Works seamlessly on desktop and mobile
+- 🤖 **AI Assistant** - Ask questions about your schedule and attendance (Powered by Llama 3 via Groq)
 
 ## 🚀 Quick Start
 
@@ -25,52 +28,64 @@ A modern, feature-rich attendance tracking and academic management application b
 - npm or yarn
 - Firebase account
 - Google Cloud Console account (for OAuth)
+- Groq Cloud API Key (for AI features)
 
 ### Installation
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/aadithya-vimal/PunchIn.git
+   git clone [https://github.com/aadithya-vimal/PunchIn.git](https://github.com/aadithya-vimal/PunchIn.git)
    cd PunchIn/react-app
-   ```
+````
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+2.  **Install dependencies**
 
-3. **Set up Firebase**
-   - Create a new Firebase project at [Firebase Console](https://console.firebase.google.com/)
-   - Enable Authentication (Email/Password and Google)
-   - Create a Firestore database
-   - Copy your Firebase configuration
+    ```bash
+    npm install
+    ```
 
-4. **Configure environment variables**
-   
-   Create a `.env.local` file in the `react-app` directory:
-   ```env
-   VITE_API_KEY="your-firebase-api-key"
-   VITE_AUTH_DOMAIN="your-project.firebaseapp.com"
-   VITE_PROJECT_ID="your-project-id"
-   VITE_STORAGE_BUCKET="your-project.appspot.com"
-   VITE_MESSAGING_SENDER_ID="your-sender-id"
-   VITE_APP_ID="your-app-id"
-   VITE_MEASUREMENT_ID="G-YOUR-ID"
-   ```
+3.  **Set up Firebase**
 
-5. **Configure Google OAuth**
-   - Go to [Google Cloud Console](https://console.cloud.google.com/)
-   - Navigate to **APIs & Services** → **Credentials**
-   - Add `http://localhost:5173` to **Authorized JavaScript origins**
-   - Update the OAuth client ID in `src/pages/LoginPage.jsx` (line 36)
+      - Create a new Firebase project at [Firebase Console](https://console.firebase.google.com/)
+      - Enable Authentication (Email/Password and Google)
+      - Create a Firestore database
+      - Copy your Firebase configuration
 
-6. **Run the development server**
-   ```bash
-   npm run dev
-   ```
+4.  **Configure environment variables**
 
-7. **Open your browser**
-   Navigate to `http://localhost:5173`
+    Create a `.env.local` file in the `react-app` directory:
+
+    ```env
+    VITE_API_KEY="your-firebase-api-key"
+    VITE_AUTH_DOMAIN="your-project.firebaseapp.com"
+    VITE_PROJECT_ID="your-project-id"
+    VITE_STORAGE_BUCKET="your-project.appspot.com"
+    VITE_MESSAGING_SENDER_ID="your-sender-id"
+    VITE_APP_ID="your-app-id"
+    VITE_MEASUREMENT_ID="G-YOUR-ID"
+
+    # Google Sign-In
+    VITE_GOOGLE_CLIENT_ID="your-google-client-id"
+
+    # Groq AI
+    VITE_GROQ_API_KEY="your-groq-api-key"
+    ```
+
+5.  **Configure Google OAuth**
+
+      - Go to [Google Cloud Console](https://console.cloud.google.com/)
+      - Navigate to **APIs & Services** → **Credentials**
+      - Add `http://localhost:5173` to **Authorized JavaScript origins**
+      - Update the OAuth client ID in `.env.local`
+
+6.  **Run the development server**
+
+    ```bash
+    npm run dev
+    ```
+
+7.  **Open your browser**
+    Navigate to `http://localhost:5173`
 
 ## 🏗️ Project Structure
 
@@ -104,32 +119,39 @@ react-app/
 
 ### Firebase Setup
 
-1. **Authentication**
-   - Enable Email/Password authentication
-   - Enable Google authentication
-   - Add authorized domains in Firebase Console
+1.  **Authentication**
 
-2. **Firestore Database**
-   - Create a database in production mode
-   - Set up security rules:
-   ```javascript
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /users/{userId} {
-         allow read, write: if request.auth != null && request.auth.uid == userId;
-       }
-     }
-   }
-   ```
+      - Enable Email/Password authentication
+      - Enable Google authentication
+      - Add authorized domains in Firebase Console
+
+2.  **Firestore Database**
+
+      - Create a database in production mode
+      - Set up security rules:
+
+    <!-- end list -->
+
+    ```javascript
+    rules_version = '2';
+    service cloud.firestore {
+      match /databases/{database}/documents {
+        match /users/{userId} {
+          allow read, write: if request.auth != null && request.auth.uid == userId;
+        }
+        match /pods/{podId} {
+          allow read, write: if request.auth != null;
+        }
+      }
+    }
+    ```
 
 ### Google OAuth Setup
 
-1. Create OAuth 2.0 credentials in Google Cloud Console
-2. Add authorized origins:
-   - `http://localhost:5173` (development)
-   - Your production URL (when deployed)
-3. Update the client ID in `src/pages/LoginPage.jsx`
+1.  Create OAuth 2.0 credentials in Google Cloud Console
+2.  Add authorized origins:
+      - `http://localhost:5173` (development)
+      - Your production URL (when deployed)
 
 ## 📦 Build for Production
 
@@ -141,64 +163,51 @@ The build output will be in the `dist` directory.
 
 ## 🚢 Deployment
 
-### Vercel (Recommended)
+### Vercel / Cloudflare Pages (Recommended)
 
-1. Install Vercel CLI:
-   ```bash
-   npm i -g vercel
-   ```
+1.  Install Vercel CLI or Wrangler (Cloudflare):
 
-2. Deploy:
-   ```bash
-   cd react-app
-   vercel
-   ```
+    ```bash
+    npm i -g vercel
+    # or
+    npm i -g wrangler
+    ```
 
-3. Add environment variables in Vercel dashboard
+2.  Deploy:
 
-4. Update Firebase authorized domains with your Vercel URL
+    ```bash
+    cd react-app
+    vercel
+    # or
+    npm run build
+    npx wrangler pages deploy dist
+    ```
 
-### Other Platforms
+3.  Add environment variables in your hosting dashboard
 
-The app can be deployed to any static hosting service:
-- Netlify
-- GitHub Pages
-- Firebase Hosting
-- AWS S3 + CloudFront
-
-## 🐛 Debugging & Fixes
-
-This version includes several critical fixes:
-
-- ✅ **"Only Monday" Bug Fix** - Subjects editing no longer deletes timetable data
-- ✅ **Performance Optimization** - Debounced Firebase saves (1.5s delay)
-- ✅ **Optimistic UI Updates** - Instant UI feedback without waiting for Firebase
-- ✅ **Security Improvements** - Removed client-side admin checks
-- ✅ **Centralized Modal Management** - Better state management
-
-For detailed information about fixes, see the development documentation.
+4.  Update Firebase authorized domains with your production URL
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome\! Please feel free to submit a Pull Request.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)** - see the [LICENSE](https://www.google.com/search?q=LICENSE) file for details.
 
 ## 👤 Author
 
 **Aadithya Vimal**
-- Email: aadithyavimal.work@gmail.com
-- GitHub: [@aadithya-vimal](https://github.com/aadithya-vimal)
+
+  - Email: aadithyavimal.work@gmail.com
+  - GitHub: [@aadithya-vimal](https://github.com/aadithya-vimal)
 
 ## 🙏 Acknowledgments
 
-- Firebase for backend services
-- React team for the amazing framework
-- Tailwind CSS for styling
-- Vite for blazing fast development
+  - Firebase for backend services
+  - React team for the amazing framework
+  - Tailwind CSS for styling
+  - Vite for blazing fast development
+  - Groq for AI inference
 
----
-
-**Note**: Remember to keep your `.env.local` file secure and never commit it to version control. The `.gitignore` file is already configured to exclude it.
+-----
