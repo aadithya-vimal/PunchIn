@@ -5,7 +5,6 @@ import { auth, db } from '../firebase/config';
 
 export const UserContext = createContext();
 
-// Helper: Load initial state from local storage to prevent flicker
 const getInitialAttendanceData = () => {
   try {
     const stored = localStorage.getItem('attendanceData');
@@ -16,48 +15,47 @@ const getInitialAttendanceData = () => {
 };
 
 export const UserProvider = ({ children }) => {
-  // --- STATE MANAGEMENT ---
+  // --- STATE ---
   const [currentUser, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   
-  // Data State
   const [subjects, setSubjects] = useState([]);
   const [attendanceData, setAttendanceData] = useState(getInitialAttendanceData);
   const [timetable, setTimetable] = useState({});
   const [profile, setProfile] = useState({});
   const [lastPunch, setLastPunch] = useState(null);
+  
+  // NEW: Stores substitutions: { "2023-12-05": { "2": 4 } } -> On Dec 5th, Period 2 is Subject Index 4
+  const [dailyOverrides, setDailyOverrides] = useState({}); 
 
-  // UI State
   const [activeModal, setActiveModal] = useState(null);
   const [selectedSubjects, setSelectedSubjects] = useState([]);
   const [missedAttendance, setMissedAttendance] = useState(null);
 
-  // Refs for Debouncing
   const attendanceSaveTimer = useRef(null);
   const attendanceDataRef = useRef(attendanceData);
   const [pendingUpdates, setPendingUpdates] = useState(new Set());
 
-  // --- AUTH & DATA SYNC ---
+  // --- SYNC ---
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       setIsLoading(false);
       
       if (!user) {
-        // Reset state on logout
         setSubjects([]);
         setAttendanceData({});
         setTimetable({});
         setProfile({});
         setLastPunch(null);
+        setDailyOverrides({});
         setSelectedSubjects([]);
         localStorage.removeItem('attendanceData');
       } else {
-        // Subscribe to real-time user data
         const userDocRef = doc(db, 'users', user.uid);
         const unsubscribeData = onSnapshot(userDocRef, (docSnap) => {
-          if (pendingUpdates.size > 0) return; // Skip updates if we are currently writing
+          if (pendingUpdates.size > 0) return; 
           if (docSnap.exists()) {
             const data = docSnap.data();
             setSubjects(data.subjects || []);
@@ -65,6 +63,7 @@ export const UserProvider = ({ children }) => {
             setTimetable(data.timetable || {});
             setProfile(data.profile || {});
             setLastPunch(data.lastPunch || null);
+            setDailyOverrides(data.dailyOverrides || {}); // Load overrides
           }
         });
         return () => unsubscribeData();
@@ -73,21 +72,20 @@ export const UserProvider = ({ children }) => {
     return () => unsubscribeAuth();
   }, [pendingUpdates.size]);
 
-  // Sync attendance to LocalStorage for speed
   useEffect(() => {
     attendanceDataRef.current = attendanceData;
     localStorage.setItem('attendanceData', JSON.stringify(attendanceData));
   }, [attendanceData]);
 
-  // --- DATABASE HELPERS ---
+  // --- SAVE HELPERS ---
   const saveData = async (dataToSave) => {
     if (!currentUser) return;
     
-    // Optimistic UI Updates
     if ('subjects' in dataToSave) setSubjects(dataToSave.subjects);
     if ('attendanceData' in dataToSave) setAttendanceData(dataToSave.attendanceData);
     if ('timetable' in dataToSave) setTimetable(dataToSave.timetable);
     if ('profile' in dataToSave) setProfile(dataToSave.profile);
+    if ('dailyOverrides' in dataToSave) setDailyOverrides(dataToSave.dailyOverrides);
 
     try {
       await setDoc(doc(db, 'users', currentUser.uid), dataToSave, { merge: true });
@@ -103,44 +101,75 @@ export const UserProvider = ({ children }) => {
     } catch (e) { console.error(e); }
   };
 
-  // --- ATTENDANCE LOGIC (PUNCH IN/OUT) ---
+  // --- SUBSTITUTION LOGIC ---
+  const markSubstitution = async (date, period, newSubjectIndex) => {
+      const updatedOverrides = { ...dailyOverrides };
+      if (!updatedOverrides[date]) updatedOverrides[date] = {};
+      
+      // Update local state immediately
+      updatedOverrides[date][period] = parseInt(newSubjectIndex, 10);
+      setDailyOverrides(updatedOverrides);
+
+      // Persist to Firebase
+      if (currentUser) {
+          try {
+              await updateDoc(doc(db, 'users', currentUser.uid), { 
+                  [`dailyOverrides.${date}.${period}`]: parseInt(newSubjectIndex, 10)
+              });
+          } catch(e) { console.error("Sub Error:", e); }
+      }
+  };
+
+  // --- PUNCH LOGIC ---
   const handlePunch = (subjectIndex, period, status, isUndo = false) => {
     const todayDate = new Date().toISOString().slice(0, 10);
-    const oldData = attendanceData[subjectIndex] || { attended: 0, total: 0, requiredPerc: 75, dailyStatus: {} };
     
+    // SAFETY: If swapping to a new subject that has no data yet, initialize it
+    // This ensures logic doesn't break if you substitute to a freshly added subject
+    let currentSubjectData = attendanceData[subjectIndex];
+    if (!currentSubjectData) {
+        currentSubjectData = { attended: 0, total: 0, requiredPerc: 75, dailyStatus: {} };
+    }
+
+    // Clone data to avoid mutation
+    const oldData = { ...currentSubjectData };
     let attended = Number(oldData.attended) || 0;
     let total = Number(oldData.total) || 0;
     const dailyStatus = JSON.parse(JSON.stringify(oldData.dailyStatus || {}));
     const day = dailyStatus[todayDate] ? { ...dailyStatus[todayDate] } : {};
 
-    // Logic for Undo vs Punch
     if (isUndo) {
         if (!day[period]) return; // Nothing to undo
         const lastStatus = day[period];
         delete day[period];
+        
+        // Cleanup empty day object
         if (Object.keys(day).length === 0) delete dailyStatus[todayDate];
         else dailyStatus[todayDate] = day;
 
+        // Revert counts
         if (lastStatus === 'attended' && attended > 0) attended--;
         if ((lastStatus === 'attended' || lastStatus === 'bunked') && total > 0) total--;
     } else {
-        if (day[period]) return; // Already punched
+        if (day[period]) return; // Already marked
         day[period] = status;
         dailyStatus[todayDate] = day;
+        
+        // Update counts
         total++;
         if (status === 'attended') attended++;
     }
 
     const updatedSubjectData = { ...oldData, attended, total, dailyStatus };
     
-    // Update State
+    // Update Context State
     setAttendanceData(prev => ({ ...prev, [subjectIndex]: updatedSubjectData }));
     
-    // Save to DB
+    // Debounce/Lock logic
     const updateKey = `punch-${subjectIndex}-${period}`;
     setPendingUpdates(prev => new Set(prev).add(updateKey));
     
-    // Update Last Punch Metadata (Only on Punch, not Undo)
+    // Update Widget
     if (!isUndo) {
         const now = new Date();
         const meta = {
@@ -153,12 +182,13 @@ export const UserProvider = ({ children }) => {
         updateDoc(doc(db, 'users', currentUser.uid), { lastPunch: meta });
     }
 
+    // Save specific subject data
     saveSubjectAttendance(subjectIndex, updatedSubjectData).finally(() => {
         setPendingUpdates(prev => { const n = new Set(prev); n.delete(updateKey); return n; });
     });
   };
 
-  // --- CATCH UP / MISSED ATTENDANCE ---
+  // --- CATCH UP LOGIC ---
   const checkForMissedAttendance = (startDateInput, endDateInput) => {
     if (!timetable || Object.keys(timetable).length === 0) return "No timetable.";
     
@@ -169,7 +199,7 @@ export const UserProvider = ({ children }) => {
     let end = endDateInput ? new Date(endDateInput) : new Date(today);
     
     if (!startDateInput) {
-        start.setDate(today.getDate() - 7); // Default 7 days back
+        start.setDate(today.getDate() - 7); 
         end.setDate(today.getDate() - 1);
     }
 
@@ -182,18 +212,23 @@ export const UserProvider = ({ children }) => {
         const daySchedule = timetable[dayName];
 
         if (daySchedule && Object.keys(daySchedule).length > 0) {
-            // Check if ANY data exists for this date
+            // Check if ANY data exists for this date across ALL subjects
             const hasData = Object.values(attendanceData).some(sub => sub.dailyStatus && sub.dailyStatus[dateStr]);
             
             if (!hasData) {
                 daysChecked.push(new Date(d));
                 Object.entries(daySchedule).forEach(([period, subjectIndex]) => {
-                    if (subjects[subjectIndex]) {
+                    // CHECK FOR OVERRIDES HERE TOO
+                    const overrideIndex = dailyOverrides[dateStr]?.[period];
+                    const finalIndex = overrideIndex !== undefined ? overrideIndex : subjectIndex;
+
+                    if (subjects[finalIndex]) {
                         missedSessions.push({
                             date: dateStr,
                             displayDate: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', weekday: 'short' }),
-                            dayName, period, subjectIndex,
-                            subjectName: subjects[subjectIndex]
+                            dayName, period, 
+                            subjectIndex: finalIndex,
+                            subjectName: subjects[finalIndex]
                         });
                     }
                 });
@@ -201,7 +236,6 @@ export const UserProvider = ({ children }) => {
         }
     }
 
-    // Prepare Modal Data
     const rangeStr = daysChecked.length > 0 
         ? `${daysChecked[daysChecked.length-1].toLocaleDateString()} to ${daysChecked[0].toLocaleDateString()}` 
         : `${start.toLocaleDateString()} to ${end.toLocaleDateString()}`;
@@ -231,7 +265,6 @@ export const UserProvider = ({ children }) => {
     setAttendanceData(newData);
     saveData({ attendanceData: newData });
     
-    // Update Widget
     if (sessions.length > 0) {
         const now = new Date();
         const meta = {
@@ -244,7 +277,6 @@ export const UserProvider = ({ children }) => {
     setActiveModal(null);
   };
 
-  // --- STATS HELPER ---
   const getProfileStats = () => {
     let tA = 0, tC = 0;
     Object.values(attendanceData).forEach(d => { tA += Number(d.attended)||0; tC += Number(d.total)||0; });
@@ -255,9 +287,8 @@ export const UserProvider = ({ children }) => {
   const value = {
     currentUser, subjects, attendanceData, timetable, profile, isLoading, 
     activeModal, setActiveModal, closeModal: () => setActiveModal(null),
-    isAdmin, lastPunch,
+    isAdmin, lastPunch, dailyOverrides,
     
-    // Data Actions
     saveData, saveSubjects: (names) => saveData({ subjects: names }), 
     updateAttendanceData: (idx, field, val) => {
         setAttendanceData(prev => { 
@@ -266,17 +297,14 @@ export const UserProvider = ({ children }) => {
             u[idx][field]=val; 
             return u; 
         });
-        // Debounce save
         if(attendanceSaveTimer.current) clearTimeout(attendanceSaveTimer.current);
         attendanceSaveTimer.current = setTimeout(() => saveData({attendanceData: attendanceDataRef.current}), 1500);
     },
 
-    // Attendance Actions
     punchIn: (idx, p, status) => handlePunch(idx, p, status, false),
     undoPunchIn: (idx, p) => handlePunch(idx, p, null, true),
-    checkForMissedAttendance, missedAttendance, batchPunchIn,
+    checkForMissedAttendance, missedAttendance, batchPunchIn, markSubstitution,
     
-    // Misc
     selectedSubjects, setSelectedSubjects,
     handleSelectSubject: (i) => setSelectedSubjects(p => p.includes(i) ? p.filter(x=>x!==i) : [...p,i]),
     getProfileStats
