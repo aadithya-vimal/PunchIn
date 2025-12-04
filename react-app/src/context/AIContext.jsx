@@ -7,7 +7,6 @@ const callSecureAI = async (promptOrData) => {
     try {
         let messages = [];
 
-        // --- 1. PROMPT CONSTRUCTION (Same Logic as before) ---
         if (typeof promptOrData === 'string') {
             messages = [{ role: "user", content: promptOrData }];
         } else {
@@ -17,21 +16,23 @@ const callSecureAI = async (promptOrData) => {
                 const { query, context } = data;
                 
                 const systemPrompt = `
-You are a smart academic assistant.
+You are a smart, concise academic assistant.
 Current Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
 
-USER DATA:
+USER DATA CONTEXT:
 ${context || "No data available."}
 
-MATH INSTRUCTIONS (STRICT):
-1. **BASELINE:** Always start with 'Total Attended' and 'Total Classes Held' from OVERALL AGGREGATE STATS.
-2. **DO NOT DOUBLE COUNT:** Never add "past days". Only add *future* classes based on the user's query.
-3. **FORMULA:** New % = (Current Attended + Future Attended) / (Current Total + Future Total) * 100
-4. **SANITY CHECK:** If result > 100%, recalculate.
-
-EXAMPLE:
-- Query: "If I attend Friday and bunk Saturday?"
-- Logic: Look at "UPCOMING CLASSES". Total = Current Total + Friday_Count + Saturday_Count. Attended = Current Attended + Friday_Count.
+---
+### **CRITICAL INSTRUCTIONS:**
+1. **NO WALLS OF TEXT:** Never list daily schedules, "Upcoming Classes", or repeat the timetable in your response. The user knows their schedule.
+2. **ANSWER DIRECTLY:** If asked "What happens if...", start immediately with the result (e.g., "Your attendance will rise to 85%").
+3. **CALCULATING DATE RANGES (e.g., "Till Dec 20th"):**
+   - Count the number of weeks/days remaining.
+   - Multiply by the classes per week found in the 'WEEKLY SCHEDULE'.
+   - Add this to the 'Total Classes' and 'Total Attended' (if attending).
+   - **Do not show the step-by-step counting of days.** Just do the math.
+4. **SATURDAY/SUNDAY:** Check the timetable. If no classes are listed for Saturday, assume it is a holiday. Sunday is always a holiday.
+---
 `;
                 messages = [
                     { role: "system", content: systemPrompt },
@@ -48,8 +49,7 @@ EXAMPLE:
             }
         }
 
-        // --- 2. SECURE CALL (Changed) ---
-        // We now call our own backend function /api/chat instead of Groq directly
+        // Call the secure Cloudflare function
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -57,15 +57,15 @@ EXAMPLE:
         });
 
         if (!response.ok) {
-            throw new Error(`AI is currently busy or offline (Status: ${response.status})`);
+            throw new Error(`AI is currently busy (Status: ${response.status})`);
         }
 
         const data = await response.json();
         return data.choices?.[0]?.message?.content || "No response generated.";
 
     } catch (error) {
-        console.error("AI Security Proxy Error:", error);
-        return "Sorry, I couldn't reach the AI. Please try again in a moment.";
+        console.error("AI Error:", error);
+        return "Sorry, I couldn't reach the AI. Please try again.";
     }
 };
 
@@ -87,7 +87,7 @@ export const AIProvider = ({ children }) => {
     const askSimpleAI = async (query) => {
         if (!query.trim()) return "Please enter a question.";
 
-        // --- DATA PREP (Same Logic as before) ---
+        // 1. Calculate Aggregates
         let totalAttended = 0;
         let totalClasses = 0;
 
@@ -98,11 +98,12 @@ export const AIProvider = ({ children }) => {
             totalAttended += att;
             totalClasses += tot;
             const pct = tot ? ((att / tot) * 100).toFixed(1) : 0;
-            return `Subject: "${sub}" | Attended: ${att} | Total: ${tot} | Current: ${pct}%`;
+            return `${sub}: ${att}/${tot} (${pct}%)`;
         }).join('\n');
 
         const overallPct = totalClasses ? ((totalAttended / totalClasses) * 100).toFixed(2) : 0;
 
+        // 2. Pre-Calculate "Today's" Impact (Specific Math Cheat Sheet)
         const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
         const todayDate = new Date();
         const todayIndex = todayDate.getDay(); 
@@ -119,37 +120,32 @@ export const AIProvider = ({ children }) => {
             const attendPct = attendTotal > 0 ? ((attendAttended / attendTotal) * 100).toFixed(2) : 0;
 
             mathHint = `
-SCENARIOS FOR TODAY (${todayKey.toUpperCase()}):
+[MATH CHEAT SHEET FOR TODAY (${todayKey.toUpperCase()})]:
 - Classes Today: ${classesTodayCount}
-- If BUNK all today: New Overall = ${bunkPct}%
-- If ATTEND all today: New Overall = ${attendPct}%
+- If BUNK all: New Overall = ${bunkPct}%
+- If ATTEND all: New Overall = ${attendPct}%
             `;
         }
 
-        let upcomingScheduleStr = "";
-        for (let i = todayIndex + 1; i <= 6; i++) {
-            const dayName = daysOfWeek[i];
-            const daySchedule = timetable[dayName] || {};
-            const count = Object.keys(daySchedule).length;
-            if (count > 0) {
-                upcomingScheduleStr += `- ${dayName.toUpperCase()}: ${count} classes\n`;
-            }
-        }
-        
-        if (upcomingScheduleStr) {
-            upcomingScheduleStr = "\nUPCOMING CLASSES THIS WEEK:\n" + upcomingScheduleStr;
-        }
+        // 3. Simplified Timetable (Just counts per day)
+        let scheduleSummary = "";
+        daysOfWeek.forEach(day => {
+            const count = Object.keys(timetable[day] || {}).length;
+            if (count > 0) scheduleSummary += `- ${day.toUpperCase()}: ${count} classes\n`;
+        });
 
         const contextString = `
-OVERALL AGGREGATE STATS (CURRENT STATUS):
+CURRENT STATS:
 Total Attended: ${totalAttended}
-Total Classes Held: ${totalClasses}
-Current Overall Percentage: ${overallPct}%
+Total Classes: ${totalClasses}
+Overall %: ${overallPct}%
 
 ${mathHint}
-${upcomingScheduleStr}
 
-SUBJECT-WISE STATS:
+WEEKLY SCHEDULE (Classes per day):
+${scheduleSummary}
+
+SUBJECT DETAILS:
 ${formattedAttendance}
         `;
 
