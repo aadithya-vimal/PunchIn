@@ -29,13 +29,18 @@ Current Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 
 USER DATA:
 ${context || "No data available."}
 
-INSTRUCTIONS:
-1. **USE THE PRE-CALCULATED SCENARIOS:** If the user asks about "bunking today" or "attending today", DO NOT calculate it yourself. Look at the "PRE-CALCULATED SCENARIOS" section in the data and just state that number.
-2. **FOR OTHER DAYS:**
-   - Formula: (Current Total Attended) / (Current Total Classes + New Classes)
-   - Do NOT sum up individual subject stats. Use the "OVERALL AGGREGATE STATS" totals.
-3. Be concise (max 3-4 sentences).
-4. Do not use markdown bold/italics.
+MATH INSTRUCTIONS (STRICT):
+1. **BASELINE:** Always start with 'Total Attended' and 'Total Classes Held' from OVERALL AGGREGATE STATS. This is the user's CURRENT status (already includes everything up to now).
+2. **DO NOT DOUBLE COUNT:** Never add "past days" or "classes till Friday" if they are already in the past. Only add *future* classes based on the user's query.
+3. **FORMULA:**
+   - New % = (Current Attended + Future Attended) / (Current Total + Future Total) * 100
+4. **SANITY CHECK:** If your result is > 100%, you are wrong. Stop and recalculate. Attendance cannot exceed 100%.
+
+EXAMPLE:
+- Query: "If I attend Friday and bunk Saturday?"
+- Logic: Look at "UPCOMING CLASSES" section. 
+- Total = Current Total + Friday_Count + Saturday_Count.
+- Attended = Current Attended + Friday_Count (since Saturday is bunked).
 `;
 
                 messages = [
@@ -56,7 +61,7 @@ INSTRUCTIONS:
         const chatCompletion = await groq.chat.completions.create({
             messages: messages,
             model: "llama-3.1-8b-instant",
-            temperature: 0.1, // Near zero temp for rigid adherence to data
+            temperature: 0.1, // Keep it logical
             max_tokens: 1024,
         });
 
@@ -86,7 +91,7 @@ export const AIProvider = ({ children }) => {
     const askSimpleAI = async (query) => {
         if (!query.trim()) return "Please enter a question.";
 
-        // 1. Calculate Overall Aggregates
+        // 1. Calculate Aggregates
         let totalAttended = 0;
         let totalClasses = 0;
 
@@ -94,64 +99,66 @@ export const AIProvider = ({ children }) => {
             const data = attendanceData[idx] || { attended: 0, total: 0 };
             const att = Number(data.attended) || 0;
             const tot = Number(data.total) || 0;
-            
             totalAttended += att;
             totalClasses += tot;
-
             const pct = tot ? ((att / tot) * 100).toFixed(1) : 0;
             return `Subject: "${sub}" | Attended: ${att} | Total: ${tot} | Current: ${pct}%`;
         }).join('\n');
 
         const overallPct = totalClasses ? ((totalAttended / totalClasses) * 100).toFixed(2) : 0;
 
-        // 2. Format Timetable
-        let simplifiedTimetable = "";
-        Object.entries(timetable).forEach(([day, periods]) => {
-            const daySubjects = Object.values(periods).map(idx => subjects[idx]).filter(Boolean);
-            if (daySubjects.length > 0) {
-                simplifiedTimetable += `${day.toUpperCase()} (${daySubjects.length} periods): ${daySubjects.join(", ")}\n`;
-            }
-        });
-
-        // 3. Pre-Calculate "Today" Scenarios (The Fix)
-        const todayKey = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+        // 2. Pre-Calculate "Today" Scenarios
+        const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const todayDate = new Date();
+        const todayIndex = todayDate.getDay(); 
+        const todayKey = daysOfWeek[todayIndex];
         const todaySchedule = timetable[todayKey] || {};
         const classesTodayCount = Object.keys(todaySchedule).length;
 
         let mathHint = "";
         if (classesTodayCount > 0) {
-            // Scenario A: Bunk Everything Today
-            // Attended stays same, Total increases by count
             const bunkTotal = totalClasses + classesTodayCount;
             const bunkPct = bunkTotal > 0 ? ((totalAttended / bunkTotal) * 100).toFixed(2) : 0;
-            
-            // Scenario B: Attend Everything Today
-            // Both increase by count
             const attendTotal = totalClasses + classesTodayCount;
             const attendAttended = totalAttended + classesTodayCount;
             const attendPct = attendTotal > 0 ? ((attendAttended / attendTotal) * 100).toFixed(2) : 0;
 
             mathHint = `
-PRE-CALCULATED SCENARIOS FOR TODAY (${todayKey.toUpperCase()}):
-- Classes Scheduled Today: ${classesTodayCount}
-- If you BUNK all classes today: New Overall = ${bunkPct}%
-- If you ATTEND all classes today: New Overall = ${attendPct}%
+SCENARIOS FOR TODAY (${todayKey.toUpperCase()}):
+- Classes Today: ${classesTodayCount}
+- If BUNK all today: New Overall = ${bunkPct}%
+- If ATTEND all today: New Overall = ${attendPct}%
             `;
         }
 
+        // 3. Calculate Upcoming Days (Remainder of Week)
+        let upcomingScheduleStr = "";
+        // Loop from tomorrow until Saturday
+        for (let i = todayIndex + 1; i <= 6; i++) {
+            const dayName = daysOfWeek[i];
+            const daySchedule = timetable[dayName] || {};
+            const count = Object.keys(daySchedule).length;
+            if (count > 0) {
+                upcomingScheduleStr += `- ${dayName.toUpperCase()}: ${count} classes\n`;
+            }
+        }
+        
+        if (upcomingScheduleStr) {
+            upcomingScheduleStr = "\nUPCOMING CLASSES THIS WEEK:\n" + upcomingScheduleStr;
+        }
+
+        // 4. Construct Context
         const contextString = `
-OVERALL AGGREGATE STATS:
+OVERALL AGGREGATE STATS (CURRENT STATUS):
 Total Attended: ${totalAttended}
 Total Classes Held: ${totalClasses}
 Current Overall Percentage: ${overallPct}%
 
 ${mathHint}
+${upcomingScheduleStr}
 
 SUBJECT-WISE STATS:
 ${formattedAttendance}
-
-WEEKLY SCHEDULE:
-${simplifiedTimetable}
         `;
 
         return await callLlamaAPI({
