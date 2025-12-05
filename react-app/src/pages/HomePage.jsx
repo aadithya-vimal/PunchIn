@@ -23,6 +23,7 @@ import TimetableModal from '../components/TimetableModal.jsx';
 import MissedAttendanceModal from '../components/MissedAttendanceModal.jsx';
 import NotesEditor from '../components/NotesEditor.jsx';
 import AdminRecoveryPanel from '../components/AdminRecoveryPanel.jsx';
+import TimingsModal from '../components/TimingsModal.jsx'; // NEW IMPORT
 
 // Pods System
 import { PodProvider } from '../pods/PodContext.jsx';
@@ -80,12 +81,13 @@ function PodSection() {
 }
 
 const HomePage = () => {
-    const { currentUser, profile, logout, activeModal, setActiveModal, isAdmin, checkForMissedAttendance } = useContext(UserContext);
+    const { currentUser, profile, logout, activeModal, setActiveModal, isAdmin, checkForMissedAttendance, autoPunch, saveData } = useContext(UserContext);
 
     // App Visibility States
     const [podsOpen, setPodsOpen] = useState(false);
     const [infoOpen, setInfoOpen] = useState(false);
     const [notesOpen, setNotesOpen] = useState(false);
+    const [timingsOpen, setTimingsOpen] = useState(false); // NEW STATE
     const [adminPanelOpen, setAdminPanelOpen] = useState(false);
     const [notification, setNotification] = useState({ message: '', type: 'info' });
 
@@ -97,6 +99,10 @@ const HomePage = () => {
         return () => clearTimeout(timer);
     }, [currentUser]);
 
+    const handleAutoPunchToggle = () => {
+        saveData({ autoPunch: !autoPunch });
+    };
+
     return (
         <div className="gradient-bg min-h-screen text-white flex flex-col">
             <NotificationBanner message={notification.message} type={notification.type} onClose={() => setNotification({ message: '', type: 'info' })} />
@@ -106,6 +112,7 @@ const HomePage = () => {
             {activeModal === 'editSubjects' && <EditSubjectsModal />}
             {activeModal === 'timetable' && <TimetableModal />}
             {activeModal === 'missedAttendance' && <MissedAttendanceModal />}
+            {timingsOpen && <TimingsModal onClose={() => setTimingsOpen(false)} />} {/* NEW MODAL */}
 
             {/* Top Bar */}
             <div className="fixed top-6 right-6 z-50 flex items-center gap-3">
@@ -125,10 +132,9 @@ const HomePage = () => {
                         <button onClick={() => setInfoOpen(false)} className="absolute top-4 right-4 text-xl bg-white/20 hover:bg-white/40 rounded-full px-3">&times;</button>
                         <h2 className="text-3xl font-bold mb-4">Punch.In Guide</h2>
                         <ul className="list-disc ml-6 space-y-2">
-                            <li><strong>Dashboard:</strong> View daily schedule and punch in/out.</li>
+                            <li><strong>Auto Punch:</strong> Enable this to automatically mark attendance for classes as they happen. Make sure to configure your class timings!</li>
                             <li><strong>Catch Up:</strong> Fix missing attendance records for previous days.</li>
                             <li><strong>Pods:</strong> Collaborate with friends.</li>
-                            <li><strong>AI:</strong> Ask questions about your timetable and attendance.</li>
                         </ul>
                     </div>
                 </div>
@@ -143,6 +149,31 @@ const HomePage = () => {
                         <p className="text-xl opacity-90">Precision tracking for academic excellence.</p>
                         <div className="mt-4 text-2xl font-light">Welcome, <span className="font-semibold text-gradient">{profile.displayName || currentUser?.email?.split('@')[0]}</span></div>
                     </header>
+
+                    {/* NEW: Auto Punch Control Panel */}
+                    <div className="mb-8 flex flex-col sm:flex-row justify-center items-center gap-4">
+                        <div className={`flex items-center gap-3 px-5 py-3 rounded-xl border-2 transition-colors ${autoPunch ? 'bg-green-500/20 border-green-500' : 'bg-white/5 border-white/10'}`}>
+                            <div className="flex flex-col">
+                                <span className="font-bold text-sm uppercase tracking-wider">{autoPunch ? 'Auto Punch Active' : 'Auto Punch Off'}</span>
+                                <span className="text-xs text-white/50">{autoPunch ? 'Attendance marks automatically' : 'Manual marking only'}</span>
+                            </div>
+                            <button 
+                                onClick={handleAutoPunchToggle}
+                                className={`w-12 h-6 rounded-full p-1 transition-colors ${autoPunch ? 'bg-green-500' : 'bg-gray-600'}`}
+                            >
+                                <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${autoPunch ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                            </button>
+                        </div>
+                        
+                        {/* Only show config button if Auto Punch is enabled or user wants to setup */}
+                        <button 
+                            onClick={() => setTimingsOpen(true)}
+                            className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                        >
+                            <i className="fas fa-clock"></i>
+                            <span className="text-sm font-semibold">Configure Timings</span>
+                        </button>
+                    </div>
 
                     {/* Dashboard Widgets */}
                     <div className="flex flex-col md:flex-row gap-8 mb-8">
@@ -189,7 +220,7 @@ const HomePage = () => {
                     {/* Pods Modal Overlay */}
                     {podsOpen && (
                         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center">
-                            <div className="bg-gradient-to-br from-indigo-950 via-indigo-900 to-indigo-800 text-white rounded-xl shadow-2xl p-8 max-w-3xl w-full relative overflow-y-auto pt-16" style={{ maxHeight: '90vh' }}>
+                            <div className="bg-gradient-to-br from-indigo-950 via-indigo-900 to-indigo-800 text-white rounded-xl shadow-2xl p-8 max-w-3xl w-full relative overflow-y-auto pt-16" style={{ maxHeight: '90vh', backgroundColor: 'rgba(20, 22, 40, 0.98)' }}>
                                 <button onClick={() => setPodsOpen(false)} className="absolute top-4 right-4 text-xl bg-white/20 hover:bg-white/40 rounded-full px-3">&times;</button>
                                 <PodSection />
                             </div>

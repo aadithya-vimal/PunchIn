@@ -14,7 +14,19 @@ const getInitialAttendanceData = () => {
   }
 };
 
+const DEFAULT_TIMINGS = {
+    "1": "09:00",
+    "2": "10:00",
+    "3": "11:00",
+    "4": "12:00",
+    "5": "14:00",
+    "6": "15:00",
+    "7": "16:00",
+    "8": "17:00"
+};
+
 export const UserProvider = ({ children }) => {
+  // --- STATE ---
   const [currentUser, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -24,7 +36,11 @@ export const UserProvider = ({ children }) => {
   const [timetable, setTimetable] = useState({});
   const [profile, setProfile] = useState({});
   const [lastPunch, setLastPunch] = useState(null);
-  const [dailyOverrides, setDailyOverrides] = useState({}); 
+  const [dailyOverrides, setDailyOverrides] = useState({});
+  
+  // NEW: Auto Punch Settings
+  const [autoPunch, setAutoPunch] = useState(false);
+  const [classTimings, setClassTimings] = useState(DEFAULT_TIMINGS);
 
   const [activeModal, setActiveModal] = useState(null);
   const [selectedSubjects, setSelectedSubjects] = useState([]);
@@ -34,6 +50,7 @@ export const UserProvider = ({ children }) => {
   const attendanceDataRef = useRef(attendanceData);
   const [pendingUpdates, setPendingUpdates] = useState(new Set());
 
+  // --- SYNC ---
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
@@ -46,6 +63,8 @@ export const UserProvider = ({ children }) => {
         setProfile({});
         setLastPunch(null);
         setDailyOverrides({});
+        setAutoPunch(false);
+        setClassTimings(DEFAULT_TIMINGS);
         setSelectedSubjects([]);
         localStorage.removeItem('attendanceData');
       } else {
@@ -60,6 +79,8 @@ export const UserProvider = ({ children }) => {
             setProfile(data.profile || {});
             setLastPunch(data.lastPunch || null);
             setDailyOverrides(data.dailyOverrides || {});
+            setAutoPunch(data.autoPunch || false);
+            setClassTimings(data.classTimings || DEFAULT_TIMINGS);
           }
         });
         return () => unsubscribeData();
@@ -68,7 +89,6 @@ export const UserProvider = ({ children }) => {
     return () => unsubscribeAuth();
   }, [pendingUpdates.size]);
 
-  // OPTIMIZATION: Debounce LocalStorage to prevent UI freeze
   useEffect(() => {
     attendanceDataRef.current = attendanceData;
     const timeout = setTimeout(() => {
@@ -77,14 +97,72 @@ export const UserProvider = ({ children }) => {
     return () => clearTimeout(timeout);
   }, [attendanceData]);
 
+  // --- AUTO PUNCH LOGIC (Background Loop) ---
+  useEffect(() => {
+      if (!currentUser || !autoPunch) return;
+
+      const runAutoCheck = () => {
+          const now = new Date();
+          const dayName = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+          const dateStr = now.toISOString().slice(0, 10);
+          const currentTime = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+
+          const daySchedule = timetable[dayName];
+          if (!daySchedule) return;
+
+          const punchesNeeded = [];
+
+          Object.entries(daySchedule).forEach(([period, defaultSubjectIndex]) => {
+              const startTime = classTimings[period];
+              if (!startTime) return;
+
+              // Check if class has started (Current Time >= Start Time)
+              if (currentTime >= startTime) {
+                  // Determine actual subject (handle overrides)
+                  const overrideIndex = dailyOverrides[dateStr]?.[period];
+                  const finalSubjectIndex = overrideIndex !== undefined ? overrideIndex : defaultSubjectIndex;
+
+                  // Check if already punched
+                  const currentData = attendanceData[finalSubjectIndex];
+                  const alreadyMarked = currentData?.dailyStatus?.[dateStr]?.[period];
+
+                  if (!alreadyMarked && subjects[finalSubjectIndex]) {
+                      punchesNeeded.push({
+                          date: dateStr,
+                          period: period,
+                          subjectIndex: finalSubjectIndex,
+                          status: 'attended' // Default behavior: Mark Present
+                      });
+                  }
+              }
+          });
+
+          if (punchesNeeded.length > 0) {
+              console.log("Auto-Punching:", punchesNeeded);
+              batchPunchIn(punchesNeeded);
+          }
+      };
+
+      // Run immediately on load, then every 30 seconds
+      runAutoCheck();
+      const interval = setInterval(runAutoCheck, 30000); 
+      return () => clearInterval(interval);
+
+  }, [currentUser, autoPunch, classTimings, timetable, attendanceData, dailyOverrides]);
+
+
+  // --- SAVE HELPERS ---
   const saveData = async (dataToSave) => {
     if (!currentUser) return;
     
+    // Optimistic Updates
     if ('subjects' in dataToSave) setSubjects(dataToSave.subjects);
     if ('attendanceData' in dataToSave) setAttendanceData(dataToSave.attendanceData);
     if ('timetable' in dataToSave) setTimetable(dataToSave.timetable);
     if ('profile' in dataToSave) setProfile(dataToSave.profile);
     if ('dailyOverrides' in dataToSave) setDailyOverrides(dataToSave.dailyOverrides);
+    if ('autoPunch' in dataToSave) setAutoPunch(dataToSave.autoPunch);
+    if ('classTimings' in dataToSave) setClassTimings(dataToSave.classTimings);
 
     try {
       await setDoc(doc(db, 'users', currentUser.uid), dataToSave, { merge: true });
@@ -100,20 +178,14 @@ export const UserProvider = ({ children }) => {
     } catch (e) { console.error(e); }
   };
 
-  // --- TOGGLE EXCLUSION (OPTIMIZED) ---
   const toggleSubjectExclusion = (index) => {
       setAttendanceData(prev => {
           const updated = { ...prev };
-          // Deep copy specific subject to ensure React detects change properly
           const subjectData = updated[index] ? { ...updated[index] } : { attended: 0, total: 0, requiredPerc: 75, dailyStatus: {} };
-          
           subjectData.isExcluded = !subjectData.isExcluded;
           updated[index] = subjectData;
-          
           return updated;
       });
-      
-      // Debounce Cloud Save
       if(attendanceSaveTimer.current) clearTimeout(attendanceSaveTimer.current);
       attendanceSaveTimer.current = setTimeout(() => saveData({attendanceData: attendanceDataRef.current}), 1000);
   };
@@ -232,7 +304,7 @@ export const UserProvider = ({ children }) => {
     saveData({ attendanceData: newData });
     if (sessions.length > 0) {
         const now = new Date();
-        const meta = { subjectName: "Batch Update", period: "-", status: "Multiple", date: now.toLocaleDateString(), time: now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) };
+        const meta = { subjectName: "Auto/Batch", period: "-", status: "Multiple", date: now.toLocaleDateString(), time: now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) };
         setLastPunch(meta);
         updateDoc(doc(db, 'users', currentUser.uid), { lastPunch: meta });
     }
@@ -250,6 +322,9 @@ export const UserProvider = ({ children }) => {
     currentUser, subjects, attendanceData, timetable, profile, isLoading, 
     activeModal, setActiveModal, closeModal: () => setActiveModal(null),
     isAdmin, lastPunch, dailyOverrides,
+    // Export Auto Punch State & Setters
+    autoPunch, classTimings,
+    
     saveData, saveSubjects: (names) => saveData({ subjects: names }), 
     updateAttendanceData: (idx, field, val) => {
         setAttendanceData(prev => { 
