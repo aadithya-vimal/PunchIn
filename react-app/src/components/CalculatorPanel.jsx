@@ -25,7 +25,6 @@ const CalculatorPanel = () => {
   const [isInsightLoading, setIsInsightLoading] = useState(false);
   const [lastCalcSummary, setLastCalcSummary] = useState('');
   const [inputFormKey, setInputFormKey] = useState(Date.now());
-  // New state for showing the recalculation prompt
   const [staleMessage, setStaleMessage] = useState('');
 
   const toNumber = (str, defaultVal = 0) => {
@@ -53,7 +52,7 @@ const CalculatorPanel = () => {
 
   const handleCalculate = () => {
     setInsight('');
-    setStaleMessage(''); // Clear the stale message
+    setStaleMessage(''); 
     const subjectsToCalc = currentMode.includes('all') ? subjects.map((_, i) => i) : selectedSubjects;
     const isBunkMode = currentMode.includes('bunk');
     let summaryValue = 0;
@@ -108,11 +107,11 @@ ${JSON.stringify(resultsData, null, 2)}
   };
 
   const handleClear = () => {
-    setSelectedSubjects([]);       // clear selected subjects
-    setResultsData(null);          // clear calculation results
-    setInsight('');                // clear AI insights
-    setStaleMessage('');           // clear stale message
-    setInputFormKey(Date.now());  // force remount InputForm to reset fields
+    setSelectedSubjects([]);       
+    setResultsData(null);          
+    setInsight('');                
+    setStaleMessage('');           
+    setInputFormKey(Date.now());  
   };
 
   const handleModeChange = (newMode) => {
@@ -122,9 +121,7 @@ ${JSON.stringify(resultsData, null, 2)}
       setInsight('');
   }
 
-  // Called whenever an input field is edited in InputForm
   const handleDataEdit = () => {
-    // Only clear results and show message if we actually have results displayed
     if (resultsData || insight) {
       setResultsData(null);
       setInsight('');
@@ -215,7 +212,6 @@ ${JSON.stringify(resultsData, null, 2)}
         <div className="mb-8">
           <InputForm key={inputFormKey} subjectsToRender={subjectsToRender} onEdit={handleDataEdit} />
           
-          {/* Show Stale Message if data changed */}
           {staleMessage && (
               <div className="mt-8 p-4 bg-yellow-500/20 border border-yellow-500/50 rounded-lg text-center text-yellow-200 font-semibold animate-pulse">
                   <i className="fas fa-exclamation-triangle mr-2"></i>

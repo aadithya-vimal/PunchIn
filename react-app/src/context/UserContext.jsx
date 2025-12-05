@@ -15,7 +15,6 @@ const getInitialAttendanceData = () => {
 };
 
 export const UserProvider = ({ children }) => {
-  // --- STATE ---
   const [currentUser, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -25,8 +24,6 @@ export const UserProvider = ({ children }) => {
   const [timetable, setTimetable] = useState({});
   const [profile, setProfile] = useState({});
   const [lastPunch, setLastPunch] = useState(null);
-  
-  // NEW: Stores substitutions: { "2023-12-05": { "2": 4 } } -> On Dec 5th, Period 2 is Subject Index 4
   const [dailyOverrides, setDailyOverrides] = useState({}); 
 
   const [activeModal, setActiveModal] = useState(null);
@@ -37,7 +34,6 @@ export const UserProvider = ({ children }) => {
   const attendanceDataRef = useRef(attendanceData);
   const [pendingUpdates, setPendingUpdates] = useState(new Set());
 
-  // --- SYNC ---
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
@@ -63,7 +59,7 @@ export const UserProvider = ({ children }) => {
             setTimetable(data.timetable || {});
             setProfile(data.profile || {});
             setLastPunch(data.lastPunch || null);
-            setDailyOverrides(data.dailyOverrides || {}); // Load overrides
+            setDailyOverrides(data.dailyOverrides || {});
           }
         });
         return () => unsubscribeData();
@@ -72,12 +68,15 @@ export const UserProvider = ({ children }) => {
     return () => unsubscribeAuth();
   }, [pendingUpdates.size]);
 
+  // OPTIMIZATION: Debounce LocalStorage to prevent UI freeze
   useEffect(() => {
     attendanceDataRef.current = attendanceData;
-    localStorage.setItem('attendanceData', JSON.stringify(attendanceData));
+    const timeout = setTimeout(() => {
+        localStorage.setItem('attendanceData', JSON.stringify(attendanceData));
+    }, 100);
+    return () => clearTimeout(timeout);
   }, [attendanceData]);
 
-  // --- SAVE HELPERS ---
   const saveData = async (dataToSave) => {
     if (!currentUser) return;
     
@@ -101,37 +100,41 @@ export const UserProvider = ({ children }) => {
     } catch (e) { console.error(e); }
   };
 
-  // --- SUBSTITUTION LOGIC ---
+  // --- TOGGLE EXCLUSION (OPTIMIZED) ---
+  const toggleSubjectExclusion = (index) => {
+      setAttendanceData(prev => {
+          const updated = { ...prev };
+          // Deep copy specific subject to ensure React detects change properly
+          const subjectData = updated[index] ? { ...updated[index] } : { attended: 0, total: 0, requiredPerc: 75, dailyStatus: {} };
+          
+          subjectData.isExcluded = !subjectData.isExcluded;
+          updated[index] = subjectData;
+          
+          return updated;
+      });
+      
+      // Debounce Cloud Save
+      if(attendanceSaveTimer.current) clearTimeout(attendanceSaveTimer.current);
+      attendanceSaveTimer.current = setTimeout(() => saveData({attendanceData: attendanceDataRef.current}), 1000);
+  };
+
   const markSubstitution = async (date, period, newSubjectIndex) => {
       const updatedOverrides = { ...dailyOverrides };
       if (!updatedOverrides[date]) updatedOverrides[date] = {};
-      
-      // Update local state immediately
       updatedOverrides[date][period] = parseInt(newSubjectIndex, 10);
       setDailyOverrides(updatedOverrides);
-
-      // Persist to Firebase
       if (currentUser) {
           try {
               await updateDoc(doc(db, 'users', currentUser.uid), { 
                   [`dailyOverrides.${date}.${period}`]: parseInt(newSubjectIndex, 10)
               });
-          } catch(e) { console.error("Sub Error:", e); }
+          } catch(e) { console.error(e); }
       }
   };
 
-  // --- PUNCH LOGIC ---
   const handlePunch = (subjectIndex, period, status, isUndo = false) => {
     const todayDate = new Date().toISOString().slice(0, 10);
-    
-    // SAFETY: If swapping to a new subject that has no data yet, initialize it
-    // This ensures logic doesn't break if you substitute to a freshly added subject
-    let currentSubjectData = attendanceData[subjectIndex];
-    if (!currentSubjectData) {
-        currentSubjectData = { attended: 0, total: 0, requiredPerc: 75, dailyStatus: {} };
-    }
-
-    // Clone data to avoid mutation
+    let currentSubjectData = attendanceData[subjectIndex] || { attended: 0, total: 0, requiredPerc: 75, dailyStatus: {} };
     const oldData = { ...currentSubjectData };
     let attended = Number(oldData.attended) || 0;
     let total = Number(oldData.total) || 0;
@@ -139,69 +142,50 @@ export const UserProvider = ({ children }) => {
     const day = dailyStatus[todayDate] ? { ...dailyStatus[todayDate] } : {};
 
     if (isUndo) {
-        if (!day[period]) return; // Nothing to undo
+        if (!day[period]) return;
         const lastStatus = day[period];
         delete day[period];
-        
-        // Cleanup empty day object
         if (Object.keys(day).length === 0) delete dailyStatus[todayDate];
         else dailyStatus[todayDate] = day;
-
-        // Revert counts
         if (lastStatus === 'attended' && attended > 0) attended--;
         if ((lastStatus === 'attended' || lastStatus === 'bunked') && total > 0) total--;
     } else {
-        if (day[period]) return; // Already marked
+        if (day[period]) return;
         day[period] = status;
         dailyStatus[todayDate] = day;
-        
-        // Update counts
         total++;
         if (status === 'attended') attended++;
     }
 
     const updatedSubjectData = { ...oldData, attended, total, dailyStatus };
-    
-    // Update Context State
     setAttendanceData(prev => ({ ...prev, [subjectIndex]: updatedSubjectData }));
     
-    // Debounce/Lock logic
     const updateKey = `punch-${subjectIndex}-${period}`;
     setPendingUpdates(prev => new Set(prev).add(updateKey));
     
-    // Update Widget
     if (!isUndo) {
         const now = new Date();
         const meta = {
             subjectName: subjects[subjectIndex] || "Unknown",
-            period, status,
-            date: now.toLocaleDateString(),
+            period, status, date: now.toLocaleDateString(),
             time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
         setLastPunch(meta);
         updateDoc(doc(db, 'users', currentUser.uid), { lastPunch: meta });
     }
 
-    // Save specific subject data
     saveSubjectAttendance(subjectIndex, updatedSubjectData).finally(() => {
         setPendingUpdates(prev => { const n = new Set(prev); n.delete(updateKey); return n; });
     });
   };
 
-  // --- CATCH UP LOGIC ---
   const checkForMissedAttendance = (startDateInput, endDateInput) => {
     if (!timetable || Object.keys(timetable).length === 0) return "No timetable.";
-    
     const today = new Date();
     today.setHours(0,0,0,0);
-    
     let start = startDateInput ? new Date(startDateInput) : new Date(today);
     let end = endDateInput ? new Date(endDateInput) : new Date(today);
-    
-    if (!startDateInput) {
-        start.setDate(today.getDate() - 7); 
-        end.setDate(today.getDate() - 1);
-    }
+    if (!startDateInput) { start.setDate(today.getDate() - 7); end.setDate(today.getDate() - 1); }
 
     const missedSessions = [];
     const daysChecked = [];
@@ -210,41 +194,26 @@ export const UserProvider = ({ children }) => {
         const dateStr = d.toISOString().slice(0, 10);
         const dayName = d.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
         const daySchedule = timetable[dayName];
-
         if (daySchedule && Object.keys(daySchedule).length > 0) {
-            // Check if ANY data exists for this date across ALL subjects
             const hasData = Object.values(attendanceData).some(sub => sub.dailyStatus && sub.dailyStatus[dateStr]);
-            
             if (!hasData) {
                 daysChecked.push(new Date(d));
                 Object.entries(daySchedule).forEach(([period, subjectIndex]) => {
-                    // CHECK FOR OVERRIDES HERE TOO
                     const overrideIndex = dailyOverrides[dateStr]?.[period];
                     const finalIndex = overrideIndex !== undefined ? overrideIndex : subjectIndex;
-
                     if (subjects[finalIndex]) {
                         missedSessions.push({
                             date: dateStr,
                             displayDate: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', weekday: 'short' }),
-                            dayName, period, 
-                            subjectIndex: finalIndex,
-                            subjectName: subjects[finalIndex]
+                            dayName, period, subjectIndex: finalIndex, subjectName: subjects[finalIndex]
                         });
                     }
                 });
             }
         }
     }
-
-    const rangeStr = daysChecked.length > 0 
-        ? `${daysChecked[daysChecked.length-1].toLocaleDateString()} to ${daysChecked[0].toLocaleDateString()}` 
-        : `${start.toLocaleDateString()} to ${end.toLocaleDateString()}`;
-
-    setMissedAttendance({
-        daysMissed: daysChecked.length,
-        dateRange: rangeStr,
-        sessions: missedSessions
-    });
+    const rangeStr = daysChecked.length > 0 ? `${daysChecked[daysChecked.length-1].toLocaleDateString()} to ${daysChecked[0].toLocaleDateString()}` : `${start.toLocaleDateString()} to ${end.toLocaleDateString()}`;
+    setMissedAttendance({ daysMissed: daysChecked.length, dateRange: rangeStr, sessions: missedSessions });
     setActiveModal('missedAttendance');
   };
 
@@ -253,24 +222,17 @@ export const UserProvider = ({ children }) => {
     sessions.forEach(({ date, period, subjectIndex, status }) => {
         if (!newData[subjectIndex]) newData[subjectIndex] = { attended: 0, total: 0, dailyStatus: {} };
         if (!newData[subjectIndex].dailyStatus[date]) newData[subjectIndex].dailyStatus[date] = {};
-        
         if (!newData[subjectIndex].dailyStatus[date][period]) {
             newData[subjectIndex].dailyStatus[date][period] = status;
             newData[subjectIndex].total = (Number(newData[subjectIndex].total) || 0) + 1;
-            if (status === 'attended') {
-                newData[subjectIndex].attended = (Number(newData[subjectIndex].attended) || 0) + 1;
-            }
+            if (status === 'attended') newData[subjectIndex].attended = (Number(newData[subjectIndex].attended) || 0) + 1;
         }
     });
     setAttendanceData(newData);
     saveData({ attendanceData: newData });
-    
     if (sessions.length > 0) {
         const now = new Date();
-        const meta = {
-            subjectName: "Batch Update", period: "-", status: "Multiple",
-            date: now.toLocaleDateString(), time: now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
-        };
+        const meta = { subjectName: "Batch Update", period: "-", status: "Multiple", date: now.toLocaleDateString(), time: now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) };
         setLastPunch(meta);
         updateDoc(doc(db, 'users', currentUser.uid), { lastPunch: meta });
     }
@@ -288,7 +250,6 @@ export const UserProvider = ({ children }) => {
     currentUser, subjects, attendanceData, timetable, profile, isLoading, 
     activeModal, setActiveModal, closeModal: () => setActiveModal(null),
     isAdmin, lastPunch, dailyOverrides,
-    
     saveData, saveSubjects: (names) => saveData({ subjects: names }), 
     updateAttendanceData: (idx, field, val) => {
         setAttendanceData(prev => { 
@@ -300,11 +261,10 @@ export const UserProvider = ({ children }) => {
         if(attendanceSaveTimer.current) clearTimeout(attendanceSaveTimer.current);
         attendanceSaveTimer.current = setTimeout(() => saveData({attendanceData: attendanceDataRef.current}), 1500);
     },
-
     punchIn: (idx, p, status) => handlePunch(idx, p, status, false),
     undoPunchIn: (idx, p) => handlePunch(idx, p, null, true),
     checkForMissedAttendance, missedAttendance, batchPunchIn, markSubstitution,
-    
+    toggleSubjectExclusion, 
     selectedSubjects, setSelectedSubjects,
     handleSelectSubject: (i) => setSelectedSubjects(p => p.includes(i) ? p.filter(x=>x!==i) : [...p,i]),
     getProfileStats
