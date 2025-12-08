@@ -4,21 +4,7 @@ import { getFirestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
 
 // Your web app's Firebase configuration
-// !! IMPORTANT !!
-// I have moved your keys to environment variables.
-// Create a file named .env.local in your /react-app/ folder.
-//
-// Add your keys to that file like this:
-// VITE_API_KEY="AIzaSy...your...key"
-// VITE_AUTH_DOMAIN="your-project.firebaseapp.com"
-// VITE_PROJECT_ID="your-project-id"
-// VITE_STORAGE_BUCKET="your-project.appspot.com"
-// VITE_MESSAGING_SENDER_ID="your-sender-id"
-// VITE_APP_ID="your-app-id"
-// VITE_MEASUREMENT_ID="G-YOUR-ID"
-//
-// Your original API key was exposed. Please delete it from your Google Cloud console.
-
+// Keys are loaded from environment variables (.env.local)
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_API_KEY,
   authDomain: import.meta.env.VITE_AUTH_DOMAIN,
@@ -32,7 +18,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Export the services you'll need
+// Export the services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const functions = getFunctions(app);

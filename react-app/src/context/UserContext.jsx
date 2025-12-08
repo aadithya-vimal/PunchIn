@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useRef } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
+import useAutoPunch from '../hooks/useAutoPunch';
 
 export const UserContext = createContext();
 
@@ -38,7 +39,7 @@ export const UserProvider = ({ children }) => {
   const [lastPunch, setLastPunch] = useState(null);
   const [dailyOverrides, setDailyOverrides] = useState({});
   
-  // NEW: Auto Punch Settings
+  // Auto Punch Settings
   const [autoPunch, setAutoPunch] = useState(false);
   const [classTimings, setClassTimings] = useState(DEFAULT_TIMINGS);
 
@@ -97,59 +98,10 @@ export const UserProvider = ({ children }) => {
     return () => clearTimeout(timeout);
   }, [attendanceData]);
 
-  // --- AUTO PUNCH LOGIC (Background Loop) ---
-  useEffect(() => {
-      if (!currentUser || !autoPunch) return;
-
-      const runAutoCheck = () => {
-          const now = new Date();
-          const dayName = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-          const dateStr = now.toISOString().slice(0, 10);
-          const currentTime = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
-
-          const daySchedule = timetable[dayName];
-          if (!daySchedule) return;
-
-          const punchesNeeded = [];
-
-          Object.entries(daySchedule).forEach(([period, defaultSubjectIndex]) => {
-              const startTime = classTimings[period];
-              if (!startTime) return;
-
-              // Check if class has started (Current Time >= Start Time)
-              if (currentTime >= startTime) {
-                  // Determine actual subject (handle overrides)
-                  const overrideIndex = dailyOverrides[dateStr]?.[period];
-                  const finalSubjectIndex = overrideIndex !== undefined ? overrideIndex : defaultSubjectIndex;
-
-                  // Check if already punched
-                  const currentData = attendanceData[finalSubjectIndex];
-                  const alreadyMarked = currentData?.dailyStatus?.[dateStr]?.[period];
-
-                  if (!alreadyMarked && subjects[finalSubjectIndex]) {
-                      punchesNeeded.push({
-                          date: dateStr,
-                          period: period,
-                          subjectIndex: finalSubjectIndex,
-                          status: 'attended' // Default behavior: Mark Present
-                      });
-                  }
-              }
-          });
-
-          if (punchesNeeded.length > 0) {
-              console.log("Auto-Punching:", punchesNeeded);
-              batchPunchIn(punchesNeeded);
-          }
-      };
-
-      // Run immediately on load, then every 30 seconds
-      runAutoCheck();
-      const interval = setInterval(runAutoCheck, 30000); 
-      return () => clearInterval(interval);
-
-  }, [currentUser, autoPunch, classTimings, timetable, attendanceData, dailyOverrides]);
-
+  // --- AUTH HELPER ---
+  const logout = () => {
+    signOut(auth).catch((error) => console.error("Logout Error:", error));
+  };
 
   // --- SAVE HELPERS ---
   const saveData = async (dataToSave) => {
@@ -251,6 +203,39 @@ export const UserProvider = ({ children }) => {
     });
   };
 
+  const batchPunchIn = (sessions) => {
+    const newData = JSON.parse(JSON.stringify(attendanceData));
+    sessions.forEach(({ date, period, subjectIndex, status }) => {
+        if (!newData[subjectIndex]) newData[subjectIndex] = { attended: 0, total: 0, dailyStatus: {} };
+        if (!newData[subjectIndex].dailyStatus[date]) newData[subjectIndex].dailyStatus[date] = {};
+        if (!newData[subjectIndex].dailyStatus[date][period]) {
+            newData[subjectIndex].dailyStatus[date][period] = status;
+            newData[subjectIndex].total = (Number(newData[subjectIndex].total) || 0) + 1;
+            if (status === 'attended') newData[subjectIndex].attended = (Number(newData[subjectIndex].attended) || 0) + 1;
+        }
+    });
+    setAttendanceData(newData);
+    saveData({ attendanceData: newData });
+    if (sessions.length > 0) {
+        const now = new Date();
+        const meta = { subjectName: "Auto/Batch", period: "-", status: "Multiple", date: now.toLocaleDateString(), time: now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) };
+        setLastPunch(meta);
+        updateDoc(doc(db, 'users', currentUser.uid), { lastPunch: meta });
+    }
+    setActiveModal(null);
+  };
+
+  // --- USE AUTO PUNCH HOOK ---
+  useAutoPunch({
+    autoPunch,
+    timetable,
+    attendanceData,
+    subjects,
+    classTimings,
+    dailyOverrides,
+    batchPunchIn
+  });
+
   const checkForMissedAttendance = (startDateInput, endDateInput) => {
     if (!timetable || Object.keys(timetable).length === 0) return "No timetable.";
     const today = new Date();
@@ -289,28 +274,6 @@ export const UserProvider = ({ children }) => {
     setActiveModal('missedAttendance');
   };
 
-  const batchPunchIn = (sessions) => {
-    const newData = JSON.parse(JSON.stringify(attendanceData));
-    sessions.forEach(({ date, period, subjectIndex, status }) => {
-        if (!newData[subjectIndex]) newData[subjectIndex] = { attended: 0, total: 0, dailyStatus: {} };
-        if (!newData[subjectIndex].dailyStatus[date]) newData[subjectIndex].dailyStatus[date] = {};
-        if (!newData[subjectIndex].dailyStatus[date][period]) {
-            newData[subjectIndex].dailyStatus[date][period] = status;
-            newData[subjectIndex].total = (Number(newData[subjectIndex].total) || 0) + 1;
-            if (status === 'attended') newData[subjectIndex].attended = (Number(newData[subjectIndex].attended) || 0) + 1;
-        }
-    });
-    setAttendanceData(newData);
-    saveData({ attendanceData: newData });
-    if (sessions.length > 0) {
-        const now = new Date();
-        const meta = { subjectName: "Auto/Batch", period: "-", status: "Multiple", date: now.toLocaleDateString(), time: now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) };
-        setLastPunch(meta);
-        updateDoc(doc(db, 'users', currentUser.uid), { lastPunch: meta });
-    }
-    setActiveModal(null);
-  };
-
   const getProfileStats = () => {
     let tA = 0, tC = 0;
     Object.values(attendanceData).forEach(d => { tA += Number(d.attended)||0; tC += Number(d.total)||0; });
@@ -324,6 +287,7 @@ export const UserProvider = ({ children }) => {
     isAdmin, lastPunch, dailyOverrides,
     // Export Auto Punch State & Setters
     autoPunch, classTimings,
+    logout, // <--- ADDED LOGOUT HERE
     
     saveData, saveSubjects: (names) => saveData({ subjects: names }), 
     updateAttendanceData: (idx, field, val) => {

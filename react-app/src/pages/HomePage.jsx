@@ -1,8 +1,6 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { UserContext } from '../context/UserContext.jsx';
-import { db } from '../firebase/config';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
 // Core Components
 import DateTime from '../components/DateTime.jsx';
@@ -23,13 +21,11 @@ import TimetableModal from '../components/TimetableModal.jsx';
 import MissedAttendanceModal from '../components/MissedAttendanceModal.jsx';
 import NotesEditor from '../components/NotesEditor.jsx';
 import AdminRecoveryPanel from '../components/AdminRecoveryPanel.jsx';
-import TimingsModal from '../components/TimingsModal.jsx'; // NEW IMPORT
+import TimingsModal from '../components/TimingsModal.jsx';
 
 // Pods System
 import { PodProvider } from '../pods/PodContext.jsx';
 import PodManager from '../pods/PodManager.jsx';
-import PodMemberList from '../pods/PodMemberList.jsx';
-import PodCopyFeature from '../pods/PodCopyFeature.jsx';
 import PodBadgesLeaderboard from '../pods/PodBadgesLeaderboard.jsx';
 import PodBunkPlanner from '../pods/PodBunkPlanner.jsx';
 import { PodGroupAIProvider, PodGroupAIContext } from '../pods/PodGroupAIContext.jsx';
@@ -37,9 +33,6 @@ import { PodGroupAIProvider, PodGroupAIContext } from '../pods/PodGroupAIContext
 // Wrapper for Pod Logic
 function PodSection() {
     const [podsHelpOpen, setPodsHelpOpen] = useState(false);
-    const [copyUid, setCopyUid] = useState(null);
-    const [copyData, setCopyData] = useState(null);
-    const [modalOpen, setModalOpen] = useState(false);
 
     // Context Bridge
     const BunkPlanner = () => {
@@ -62,15 +55,16 @@ function PodSection() {
                             <button onClick={() => setPodsHelpOpen(false)} className="absolute top-4 right-4 text-xl bg-white/20 hover:bg-white/40 rounded-full px-3">&times;</button>
                             <h2 className="text-2xl font-bold mb-3">Pods Help</h2>
                             <p>Pods are collaborative groups for sharing attendance data and planning bunks together.</p>
+                            <ul className="list-disc ml-5 mt-2 space-y-1 text-white/80">
+                                <li>Create or Join a Pod using a Pod ID.</li>
+                                <li>Copy a friend's Subject List & Timetable to setup your account instantly.</li>
+                                <li>Use the "Bunk Planner" to find the best day for the whole group to bunk.</li>
+                            </ul>
                         </div>
                     </div>
                 )}
 
                 <PodManager />
-                <PodMemberList 
-                    onCopyMemberData={(uid, data) => { setCopyUid(uid); setCopyData(data); setModalOpen(true); }} 
-                />
-                <PodCopyFeature selectedUid={copyUid} memberData={copyData} modalOpen={modalOpen} setModalOpen={setModalOpen} />
                 <PodBadgesLeaderboard />
                 <PodGroupAIProvider>
                     <BunkPlanner />
@@ -87,7 +81,7 @@ const HomePage = () => {
     const [podsOpen, setPodsOpen] = useState(false);
     const [infoOpen, setInfoOpen] = useState(false);
     const [notesOpen, setNotesOpen] = useState(false);
-    const [timingsOpen, setTimingsOpen] = useState(false); // NEW STATE
+    const [timingsOpen, setTimingsOpen] = useState(false);
     const [adminPanelOpen, setAdminPanelOpen] = useState(false);
     const [notification, setNotification] = useState({ message: '', type: 'info' });
 
@@ -112,7 +106,7 @@ const HomePage = () => {
             {activeModal === 'editSubjects' && <EditSubjectsModal />}
             {activeModal === 'timetable' && <TimetableModal />}
             {activeModal === 'missedAttendance' && <MissedAttendanceModal />}
-            {timingsOpen && <TimingsModal onClose={() => setTimingsOpen(false)} />} {/* NEW MODAL */}
+            {timingsOpen && <TimingsModal onClose={() => setTimingsOpen(false)} />}
 
             {/* Top Bar */}
             <div className="fixed top-6 right-6 z-50 flex items-center gap-3">
@@ -150,7 +144,7 @@ const HomePage = () => {
                         <div className="mt-4 text-2xl font-light">Welcome, <span className="font-semibold text-gradient">{profile.displayName || currentUser?.email?.split('@')[0]}</span></div>
                     </header>
 
-                    {/* NEW: Auto Punch Control Panel */}
+                    {/* Auto Punch Control Panel */}
                     <div className="mb-8 flex flex-col sm:flex-row justify-center items-center gap-4">
                         <div className={`flex items-center gap-3 px-5 py-3 rounded-xl border-2 transition-colors ${autoPunch ? 'bg-green-500/20 border-green-500' : 'bg-white/5 border-white/10'}`}>
                             <div className="flex flex-col">
@@ -165,7 +159,6 @@ const HomePage = () => {
                             </button>
                         </div>
                         
-                        {/* Only show config button if Auto Punch is enabled or user wants to setup */}
                         <button 
                             onClick={() => setTimingsOpen(true)}
                             className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
