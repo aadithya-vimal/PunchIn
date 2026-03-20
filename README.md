@@ -1,4 +1,3 @@
-````markdown
 # 🎓 Punch.In Scholar Companion
 
 A modern, feature-rich attendance tracking and academic management application built with React, Firebase, and Tailwind CSS.
@@ -36,7 +35,6 @@ A modern, feature-rich attendance tracking and academic management application b
    ```bash
    git clone [https://github.com/aadithya-vimal/PunchIn.git](https://github.com/aadithya-vimal/PunchIn.git)
    cd PunchIn/react-app
-````
 
 2.  **Install dependencies**
 
