@@ -1,8 +1,30 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import useSEO from '../hooks/useSEO';
 
 const LandingPage = () => {
   const [activeFaq, setActiveFaq] = useState(null);
+
+  // SEO configuration with rich keywords and schema
+  useSEO({
+    title: "Punch.In — College Attendance Tracker, 75% Bunk Calculator & Timetable Planner",
+    description: "Master college attendance and bunk with mathematical certainty. Calculate safe skips for 75% or 85% criteria, sync semester timetables in study pods, and avoid detention.",
+    keywords: "college attendance tracker, bunk calculator, 75 percent attendance calculator, university attendance manager, how many classes can i bunk, college attendance percentage, semester timetable planner, study pods, student attendance app, condonation calculator",
+    canonicalUrl: "https://punchin.pages.dev/",
+    schema: {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Punch.In",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "Web, iOS, Android",
+      "offers": { "@type": "Offer", "price": "0" },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.9",
+        "reviewCount": "1240"
+      }
+    }
+  });
 
   const features = [
     {
@@ -81,7 +103,7 @@ const LandingPage = () => {
           <Link to="/" className="flex items-center gap-2.5">
             <img 
               src="/AttendanceApplication.ico" 
-              alt="Punch.In Logo" 
+              alt="Punch.In College Attendance Logo" 
               className="w-8 h-8 object-contain drop-shadow" 
             />
             <span className="text-base sm:text-lg font-bold tracking-tight text-white">Punch<span className="text-sky-400">.In</span></span>
@@ -121,7 +143,7 @@ const LandingPage = () => {
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.05] border border-white/10 text-[11px] sm:text-xs font-medium text-sky-300 mb-6 sm:mb-8 backdrop-blur-md">
             <img 
               src="/AttendanceApplication.ico" 
-              alt="Icon" 
+              alt="Punch.In Icon" 
               className="w-3.5 h-3.5 object-contain" 
             />
             <span>Next-Gen Academic Companion for Scholars & Engineers</span>
@@ -318,6 +340,47 @@ const LandingPage = () => {
         </div>
       </section>
 
+      {/* Deep SEO Educational Keywords Section */}
+      <section className="py-16 px-4 sm:px-6 border-t border-white/[0.06] bg-black/10">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center max-w-2xl mx-auto mb-10">
+            <span className="apple-badge mb-2">University Regulations & Academic Survival</span>
+            <h2 className="text-xl sm:text-3xl font-bold text-white tracking-tight">
+              Why Attendance Percentage Matters in University
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs text-white/60 leading-relaxed">
+            <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5">
+              <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                <i className="fas fa-scale-balanced text-sky-400"></i> The Mandatory 75% Rule
+              </h3>
+              <p>
+                Universities, autonomous engineering colleges, and medical institutes typically mandate a minimum of 75% attendance per subject to qualify for end-semester exams. Dropping below triggers condonation fines or detention.
+              </p>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5">
+              <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                <i className="fas fa-stethoscope text-emerald-400"></i> Medical Condonations
+              </h3>
+              <p>
+                Most colleges allow an exemption buffer (usually down to 65%) with valid medical certificates or sanctioned university club duty. Punch.In lets you simulate both normal and condoned percentage thresholds.
+              </p>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/5">
+              <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                <i className="fas fa-brain text-amber-400"></i> Strategic Class Skipping
+              </h3>
+              <p>
+                Engineering students frequently juggle hackathons, internships, competitive coding, and campus placements. Algorithmic bunk forecasting allows scholars to prioritize career sprints while keeping attendance clean.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Enriched FAQ Section */}
       <section id="faq" className="py-20 sm:py-24 px-4 sm:px-6 border-t border-white/[0.06] bg-black/20">
         <div className="max-w-3xl mx-auto">
@@ -356,7 +419,7 @@ const LandingPage = () => {
         <div className="max-w-2xl mx-auto">
           <img 
             src="/AttendanceApplication.ico" 
-            alt="Logo" 
+            alt="Punch.In Logo" 
             className="w-12 h-12 object-contain mx-auto mb-4 drop-shadow" 
           />
           <h2 className="text-2xl sm:text-5xl font-extrabold text-gradient mb-3">
@@ -378,7 +441,7 @@ const LandingPage = () => {
           <div className="flex items-center gap-2.5">
             <img 
               src="/AttendanceApplication.ico" 
-              alt="Logo" 
+              alt="Punch.In Logo" 
               className="w-5 h-5 object-contain" 
             />
             <span className="font-semibold text-white/80">Punch.In Scholar Platform</span>

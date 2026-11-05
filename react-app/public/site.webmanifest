@@ -1,0 +1,16 @@
+{
+  "name": "Punch.In — College Attendance Companion & Bunk Calculator",
+  "short_name": "Punch.In",
+  "description": "Smart college attendance tracker, automated timetable companion, study pods, and 75% bunk calculator for university students.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07090e",
+  "theme_color": "#07090e",
+  "icons": [
+    {
+      "src": "/AttendanceApplication.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

@@ -2,19 +2,72 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-  <link rel="icon" type="image/x-icon" href="/AttendanceApplication.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Punch.In Scholar Companion</title>
+    <link rel="icon" type="image/x-icon" href="/AttendanceApplication.ico" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#07090e" />
 
-    <!-- Bug #12 Fix: Removed Tailwind CDN to use local build -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Primary Meta Tags -->
+    <title>Punch.In — College Attendance Tracker, 75% Bunk Calculator & Timetable Planner</title>
+    <meta name="title" content="Punch.In — College Attendance Tracker, 75% Bunk Calculator & Timetable Planner" />
+    <meta name="description" content="Calculate safe college bunks, track attendance percentage, sync semester timetables in study pods, and avoid exam detention with Punch.In. The ultimate companion for university students." />
+    <meta name="keywords" content="college attendance tracker, bunk calculator, 75 percent attendance calculator, university timetable app, how many classes can i bunk, attendance manager, proxy attendance, college attendance percentage calculator, student study pods, semester attendance planner, academic attendance tracker" />
+    <meta name="author" content="Aadithya Vimal" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
 
-    <!-- PASTE THIS LINE HERE -->
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://punchin.pages.dev/" />
+    <meta property="og:title" content="Punch.In — College Attendance Tracker & Bunk Engine" />
+    <meta property="og:description" content="Master your university attendance. Calculate safe bunks for 75% or 85% criteria, sync weekly timetables with friends in study pods, and forecast skips with mathematical certainty." />
+    <meta property="og:image" content="https://punchin.pages.dev/AttendanceApplication.ico" />
+
+    <!-- Twitter Card -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://punchin.pages.dev/" />
+    <meta property="twitter:title" content="Punch.In — College Attendance Tracker & Bunk Engine" />
+    <meta property="twitter:description" content="Calculate safe college bunks, track university attendance percentages, and sync schedules with classmates." />
+    <meta property="twitter:image" content="https://punchin.pages.dev/AttendanceApplication.ico" />
+
+    <!-- Structured Data (JSON-LD) for Google Search Rich Results -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Punch.In Scholar Companion",
+      "url": "https://punchin.pages.dev",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "All",
+      "description": "Smart college attendance tracker, automated timetable management, peer study pods, and 75% bunk calculator for university scholars.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "creator": {
+        "@type": "Person",
+        "name": "Aadithya Vimal"
+      },
+      "featureList": [
+        "Direct Attendance Percentage Editing",
+        "75% and 85% College Bunk Calculator",
+        "Weekly Timetable Matrix with Free Period Support",
+        "Study Pods Peer Schedule Synchronization",
+        "Medical Condonation Simulation",
+        "Smart Auto-Punch Period Tracking"
+      ]
+    }
+    </script>
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+    <!-- Google Identity Services -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>
     <div id="root"></div>
-    <div id="modal-root"></div> <!-- This div is for React Portal modals -->
+    <div id="modal-root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

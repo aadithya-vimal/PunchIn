@@ -1,10 +1,34 @@
 import React, { useState, useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { UserContext } from '../context/UserContext.jsx';
+import useSEO from '../hooks/useSEO';
 
 const BunkEnginePage = () => {
   const userContext = useContext(UserContext) || {};
   const { subjects = [], attendanceData = {} } = userContext;
+
+  // Deep SEO configuration for university bunk and class skipping keywords
+  useSEO({
+    title: "The Bunk Engine — Safe Class Bunk Calculator & Attendance Forecaster",
+    description: "Calculate exactly how many classes you can skip without falling below university criteria. Boundary condition simulation, safe bunks left, and recovery predictions.",
+    keywords: "bunk engine, how many classes can i bunk, safe bunks calculator, college bunking formula, 75 percent bunk calculator, attendance recovery calculator, university attendance simulation, skip class calculator",
+    canonicalUrl: "https://punchin.pages.dev/bunk-engine",
+    schema: {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Punch.In Bunk Engine",
+      "applicationCategory": "EducationalApplication",
+      "url": "https://punchin.pages.dev/bunk-engine",
+      "operatingSystem": "All",
+      "offers": { "@type": "Offer", "price": "0" },
+      "featureList": [
+        "Safe Bunks Allowance Engine",
+        "Consecutive Recovery Classes Prediction",
+        "Hypothetical Bunk Matrix (1-5 Future Lectures)",
+        "Collaborative Group Pod Bunk Coordination"
+      ]
+    }
+  });
 
   // Active Subject selection or Standalone playground
   const [selectedSubjectIndex, setSelectedSubjectIndex] = useState(
@@ -42,7 +66,6 @@ const BunkEnginePage = () => {
   const calculateBunks = () => {
     if (activeTotal === 0 || !isEligible) return 0;
     const reqDec = activeCriteria / 100;
-    // Attended / (Total + B) >= Req => B <= (Attended - Req * Total) / Req
     const bunks = Math.floor((activeAttended - reqDec * activeTotal) / reqDec);
     return Math.max(0, bunks);
   };
@@ -78,7 +101,7 @@ const BunkEnginePage = () => {
       
       {/* Top Navbar */}
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-[#07090e]/75 border-b border-white/[0.06] px-4 sm:px-8 h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-3">
+        <Link to="/" className="flex items-center gap-2.5">
           <img 
             src="/AttendanceApplication.ico" 
             alt="Punch.In Logo" 
@@ -222,7 +245,7 @@ const BunkEnginePage = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           
           {/* Status Box */}
-          <div className="apple-card p-6 border-white/10 flex flex-col justify-between">
+          <div className="apple-card p-5 sm:p-6 border-white/10 flex flex-col justify-between">
             <span className="text-[10px] font-mono uppercase tracking-wider text-white/50">Current Standing</span>
             <div className="my-3">
               <div className="text-3xl sm:text-4xl font-extrabold font-mono text-white">
@@ -245,7 +268,7 @@ const BunkEnginePage = () => {
           </div>
 
           {/* Safe Bunks Box */}
-          <div className="apple-card p-6 border-sky-500/30 bg-sky-950/20 flex flex-col justify-between">
+          <div className="apple-card p-5 sm:p-6 border-sky-500/30 bg-sky-950/20 flex flex-col justify-between">
             <span className="text-[10px] font-mono uppercase tracking-wider text-sky-400">Safe Bunks Allowance</span>
             <div className="my-3">
               <div className="text-4xl sm:text-5xl font-extrabold font-mono text-sky-300">
@@ -263,7 +286,7 @@ const BunkEnginePage = () => {
           </div>
 
           {/* Recovery Needed */}
-          <div className="apple-card p-6 border-amber-500/30 bg-amber-950/20 flex flex-col justify-between">
+          <div className="apple-card p-5 sm:p-6 border-amber-500/30 bg-amber-950/20 flex flex-col justify-between">
             <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400">Classes Needed</span>
             <div className="my-3">
               <div className="text-4xl sm:text-5xl font-extrabold font-mono text-amber-300">
@@ -282,7 +305,7 @@ const BunkEnginePage = () => {
         </div>
 
         {/* Bunk Scenarios Simulation Matrix */}
-        <div className="apple-card p-6 sm:p-8 border border-white/10 mb-10 overflow-hidden">
+        <div className="apple-card p-5 sm:p-8 border border-white/10 mb-10 overflow-hidden">
           <div className="pb-4 border-b border-white/10 mb-5">
             <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
               <i className="fas fa-network-wired text-sky-400"></i>
@@ -336,7 +359,7 @@ const BunkEnginePage = () => {
         </div>
 
         {/* Engine Mechanics Explanation */}
-        <div className="apple-card p-6 sm:p-8 border border-white/10 prose-apple text-xs sm:text-sm">
+        <div className="apple-card p-5 sm:p-8 border border-white/10 prose-apple text-xs sm:text-sm">
           <h3 className="text-base font-bold text-white mb-2">How the Bunk Engine Derives These Numbers</h3>
           <p>
             When you skip a class, your total classes held increments ($Total + 1$), but your attended classes ($Attended$) remains static. Because attendance is a bounded ratio $Attended / Total$, the rate of percentage decline accelerates the fewer total classes you have held.
@@ -358,6 +381,7 @@ const BunkEnginePage = () => {
       <footer className="w-full border-t border-white/[0.06] bg-[#07090e] py-6 px-4 sm:px-8 text-xs text-white/40">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
+            <img src="/AttendanceApplication.ico" alt="Punch.In Logo" className="w-4 h-4 object-contain" />
             <span className="font-semibold text-white/70">Punch.In Engine Suite</span>
             <span>&copy; {new Date().getFullYear()} Aadithya Vimal</span>
           </div>

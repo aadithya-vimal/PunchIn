@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import useSEO from '../hooks/useSEO';
 
 const AttendanceCalculatorPage = () => {
   // Minimal initial inputs
@@ -11,6 +12,30 @@ const AttendanceCalculatorPage = () => {
   const [upcomingClasses, setUpcomingClasses] = useState(15);
   const [projectedAttendanceRate, setProjectedAttendanceRate] = useState(80);
   const [medicalCondonation, setMedicalCondonation] = useState(0);
+
+  // Deep SEO targeting college attendance calculation queries
+  useSEO({
+    title: "College Attendance Calculator — Check 75% Criteria & Safe Bunks Online",
+    description: "Free online college attendance percentage calculator. Enter attended and total lectures to find exact percentage, classes needed to reach 75%, and safe bunks left.",
+    keywords: "attendance percentage calculator, college attendance calculator, 75 attendance calculator, classes needed for 75 percent, how to calculate attendance percentage, safe bunks calculator, university attendance formula, condonation exemption calculator",
+    canonicalUrl: "https://punchin.pages.dev/calculator",
+    schema: {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "College Attendance Percentage Calculator",
+      "applicationCategory": "EducationalApplication",
+      "url": "https://punchin.pages.dev/calculator",
+      "operatingSystem": "All",
+      "offers": { "@type": "Offer", "price": "0" },
+      "featureList": [
+        "Instant Attendance Percentage Calculation",
+        "Classes Needed for 75% or 85% Exam Eligibility",
+        "Safe Bunk Allowance Output",
+        "Upcoming Semester Lecture Projection",
+        "Medical Condonation Percentage Simulation"
+      ]
+    }
+  });
 
   // Core calculations
   const numAttended = Math.max(0, Number(attended) || 0);
@@ -57,8 +82,8 @@ const AttendanceCalculatorPage = () => {
     <div className="gradient-bg min-h-screen text-slate-100 flex flex-col selection:bg-sky-500/30 selection:text-white">
       
       {/* Navigation Header */}
-      <header className="sticky top-0 z-40 backdrop-blur-xl bg-[#07090e]/75 border-b border-white/[0.06] px-6 h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-3">
+      <header className="sticky top-0 z-40 backdrop-blur-xl bg-[#07090e]/75 border-b border-white/[0.06] px-4 sm:px-6 h-16 flex items-center justify-between">
+        <Link to="/" className="flex items-center gap-2.5">
           <img 
             src="/AttendanceApplication.ico" 
             alt="Punch.In Logo" 
@@ -67,7 +92,7 @@ const AttendanceCalculatorPage = () => {
           <span className="text-base font-bold tracking-tight text-white">Punch<span className="text-sky-400">.In</span></span>
         </Link>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <Link to="/bunk-engine" className="text-xs text-white/70 hover:text-white transition-colors hidden sm:inline">
             Bunk Engine &rarr;
           </Link>
@@ -78,14 +103,14 @@ const AttendanceCalculatorPage = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-16 flex-grow w-full">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-16 flex-grow w-full">
         
         {/* Header */}
-        <div className="text-center max-w-2xl mx-auto mb-10">
+        <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-10">
           <div className="apple-badge mb-3">
             <i className="fas fa-calculator text-sky-400"></i> Free Online Academic Utility
           </div>
-          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-gradient mb-3">
+          <h1 className="text-2xl sm:text-5xl font-extrabold tracking-tight text-gradient mb-3">
             College Attendance Calculator
           </h1>
           <p className="text-xs sm:text-sm text-white/60">
@@ -94,7 +119,7 @@ const AttendanceCalculatorPage = () => {
         </div>
 
         {/* Minimal Input Bar */}
-        <div className="apple-card p-6 sm:p-8 mb-8 border border-white/10 shadow-2xl">
+        <div className="apple-card p-5 sm:p-8 mb-6 sm:mb-8 border border-white/10 shadow-2xl">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-white/60 mb-1.5">
@@ -142,11 +167,11 @@ const AttendanceCalculatorPage = () => {
         </div>
 
         {/* Instant Results Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 sm:mb-10">
           {/* Current Percentage */}
-          <div className="apple-card p-6 text-center border border-white/10">
+          <div className="apple-card p-5 sm:p-6 text-center border border-white/10">
             <span className="text-[10px] uppercase font-bold tracking-wider text-white/50 block mb-1">Current Attendance</span>
-            <div className={`text-4xl font-extrabold font-mono tracking-tight ${
+            <div className={`text-3xl sm:text-4xl font-extrabold font-mono tracking-tight ${
               currentPercentage >= numReq ? 'text-emerald-400' : 'text-rose-400'
             }`}>
               {currentPercentage.toFixed(1)}%
@@ -155,9 +180,9 @@ const AttendanceCalculatorPage = () => {
           </div>
 
           {/* Safe Bunks */}
-          <div className="apple-card p-6 text-center border border-white/10">
+          <div className="apple-card p-5 sm:p-6 text-center border border-white/10">
             <span className="text-[10px] uppercase font-bold tracking-wider text-white/50 block mb-1">Safe Bunks Remaining</span>
-            <div className="text-4xl font-extrabold font-mono tracking-tight text-sky-400">
+            <div className="text-3xl sm:text-4xl font-extrabold font-mono tracking-tight text-sky-400">
               {safeBunks}
             </div>
             <p className="text-xs text-white/40 mt-1">
@@ -166,9 +191,9 @@ const AttendanceCalculatorPage = () => {
           </div>
 
           {/* Classes Needed */}
-          <div className="apple-card p-6 text-center border border-white/10">
+          <div className="apple-card p-5 sm:p-6 text-center border border-white/10">
             <span className="text-[10px] uppercase font-bold tracking-wider text-white/50 block mb-1">Recovery Classes Needed</span>
-            <div className="text-4xl font-extrabold font-mono tracking-tight text-amber-400">
+            <div className="text-3xl sm:text-4xl font-extrabold font-mono tracking-tight text-amber-400">
               {classesNeeded}
             </div>
             <p className="text-xs text-white/40 mt-1">
@@ -178,15 +203,15 @@ const AttendanceCalculatorPage = () => {
         </div>
 
         {/* Surprising Depth Section: Advanced Forecast & Condonation Model */}
-        <div className="apple-card p-6 sm:p-8 border border-white/10 mb-12">
+        <div className="apple-card p-5 sm:p-8 border border-white/10 mb-10 sm:mb-12">
           <div className="flex items-center gap-2 pb-4 border-b border-white/10 mb-6">
             <i className="fas fa-chart-line text-sky-400 text-sm"></i>
-            <h2 className="text-base font-bold text-white tracking-tight">
+            <h2 className="text-sm sm:text-base font-bold text-white tracking-tight">
               In-Depth Semester Forecast & Medical Condonation Simulation
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 items-center">
             <div className="space-y-4">
               <div>
                 <div className="flex justify-between items-center text-xs font-semibold uppercase text-white/60 mb-1.5">
@@ -236,7 +261,7 @@ const AttendanceCalculatorPage = () => {
             </div>
 
             {/* Projected Outcome Panel */}
-            <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3 text-xs">
+            <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3 text-xs">
               <div className="text-[10px] uppercase font-bold tracking-wider text-sky-400">
                 End-of-Semester Projected Output
               </div>
@@ -275,19 +300,19 @@ const AttendanceCalculatorPage = () => {
         </div>
 
         {/* SEO Explanations & Formula Reference */}
-        <section className="apple-card p-6 sm:p-8 border border-white/10 prose-apple mb-8 text-xs sm:text-sm">
-          <h2 className="text-lg font-bold text-white mb-2">How College Attendance Calculations Work</h2>
+        <section className="apple-card p-5 sm:p-8 border border-white/10 prose-apple mb-8 text-xs sm:text-sm">
+          <h2 className="text-base sm:text-lg font-bold text-white mb-2">How College Attendance Calculations Work</h2>
           <p>
             Most universities enforce a strict <strong>75% or 85% attendance criteria</strong> to permit students to sit for semester examinations. Calculating whether you can afford to miss a lecture or how many subsequent lectures you must attend consecutively depends on the mathematical limits of fractional ratios:
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 not-prose my-4">
             <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 font-mono text-xs">
-              <span className="text-sky-400 font-bold block mb-1">Consecutive Classes to Recover ($C$):</span>
+              <span className="text-sky-400 font-bold block mb-1">Consecutive Classes to Recover (C):</span>
               <code>C = ceil((Req * Total - Attended) / (1 - Req))</code>
             </div>
             <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 font-mono text-xs">
-              <span className="text-emerald-400 font-bold block mb-1">Safe Bunk Allowance ($B$):</span>
+              <span className="text-emerald-400 font-bold block mb-1">Safe Bunk Allowance (B):</span>
               <code>B = floor((Attended - Req * Total) / Req)</code>
             </div>
           </div>
@@ -307,9 +332,10 @@ const AttendanceCalculatorPage = () => {
       </main>
 
       {/* Footer */}
-      <footer className="w-full border-t border-white/[0.06] bg-[#07090e] py-6 px-6 text-xs text-white/40">
+      <footer className="w-full border-t border-white/[0.06] bg-[#07090e] py-6 px-4 sm:px-6 text-xs text-white/40">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
+            <img src="/AttendanceApplication.ico" alt="Punch.In Logo" className="w-4 h-4 object-contain" />
             <span className="font-semibold text-white/70">Punch.In Attendance Tools</span>
             <span>&copy; {new Date().getFullYear()} Aadithya Vimal</span>
           </div>
