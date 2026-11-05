@@ -26,7 +26,6 @@ const useAutoPunch = ({
       const now = new Date();
       const dayName = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
       const dateStr = now.toISOString().slice(0, 10);
-      // Use standard time format HH:MM
       const currentTime = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
 
       const daySchedule = timetable[dayName];
@@ -38,24 +37,25 @@ const useAutoPunch = ({
         const startTime = classTimings[period];
         if (!startTime) return;
 
-        // Check if class has started (Current Time >= Start Time)
-        // Simple string comparison works for "09:00" vs "09:05" formats
         if (currentTime >= startTime) {
-          // Determine actual subject (handle overrides)
           const overrideIndex = dailyOverrides[dateStr]?.[period];
           const finalSubjectIndex = overrideIndex !== undefined ? overrideIndex : defaultSubjectIndex;
 
-          // Check if already punched
+          // If marked explicitly as Free / No Period (-1 or "-1"), do not auto punch
+          if (finalSubjectIndex === -1 || finalSubjectIndex === "-1") {
+            return;
+          }
+
           const currentData = attendanceData[finalSubjectIndex];
           const alreadyMarked = currentData?.dailyStatus?.[dateStr]?.[period];
 
-          // Only punch if NOT marked and subject exists
+          // Only punch if NOT marked and valid subject exists
           if (!alreadyMarked && subjects[finalSubjectIndex]) {
             punchesNeeded.push({
               date: dateStr,
               period: period,
               subjectIndex: finalSubjectIndex,
-              status: 'attended' // Default: Mark Present
+              status: 'attended'
             });
           }
         }
@@ -67,12 +67,11 @@ const useAutoPunch = ({
       }
     };
 
-    // Run check immediately, then every 30 seconds
     runAutoCheck();
     const interval = setInterval(runAutoCheck, 30000);
 
     return () => clearInterval(interval);
-  }, [autoPunch, batchPunchIn]); // Only re-run if on/off toggle changes
+  }, [autoPunch, batchPunchIn]);
 };
 
 export default useAutoPunch;

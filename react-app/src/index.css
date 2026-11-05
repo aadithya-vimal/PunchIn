@@ -22,6 +22,34 @@ body {
   min-height: 100vh;
 }
 
+/* Metallic shining hero title effect */
+.metal-shimmer {
+  background: linear-gradient(
+    110deg,
+    #ffffff 0%,
+    #cbd5e1 25%,
+    #ffffff 45%,
+    #93c5fd 50%,
+    #ffffff 55%,
+    #cbd5e1 75%,
+    #ffffff 100%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: metalShine 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes metalShine {
+  0% {
+    background-position: 150% 0;
+  }
+  100% {
+    background-position: -150% 0;
+  }
+}
+
 /* Apple glassmorphism styling */
 .apple-card {
   background: rgba(18, 22, 32, 0.65);
