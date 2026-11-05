@@ -130,6 +130,74 @@ export const UserProvider = ({ children }) => {
     } catch (e) { console.error(e); }
   };
 
+  // Directly set a target attendance percentage for a subject
+  // Keeps existing total (or uses baseClasses) and sets attended classes to match exact target percentage
+  const setSubjectPercentage = async (subjectIndex, targetPercent, baseTotalClasses = null) => {
+    const target = Math.min(100, Math.max(0, Number(targetPercent)));
+    let current = attendanceData[subjectIndex] || { attended: 0, total: 0, requiredPerc: 75, dailyStatus: {} };
+    
+    let totalClasses = baseTotalClasses !== null && Number(baseTotalClasses) > 0 
+      ? Number(baseTotalClasses) 
+      : Number(current.total) || 20;
+
+    // Minimum classes to represent decimal percentages cleanly
+    if (totalClasses < 10 && target > 0) totalClasses = 20;
+    
+    const attendedClasses = Math.round((target / 100) * totalClasses);
+
+    const updatedSubject = {
+      ...current,
+      attended: attendedClasses,
+      total: totalClasses
+    };
+
+    setAttendanceData(prev => ({
+      ...prev,
+      [subjectIndex]: updatedSubject
+    }));
+
+    if (currentUser) {
+      await saveSubjectAttendance(subjectIndex, updatedSubject);
+    }
+    return updatedSubject;
+  };
+
+  // Full Purge: Delete ALL user data (subjects, timetable, attendance, overrides, notes, profile, punch history)
+  const deleteAllUserData = async () => {
+    if (!currentUser) return;
+    
+    const emptyState = {
+      subjects: [],
+      attendanceData: {},
+      timetable: {},
+      dailyOverrides: {},
+      lastPunch: null,
+      notes: '',
+      classTimings: DEFAULT_TIMINGS,
+      autoPunch: false,
+      profile: { displayName: currentUser.displayName || '' }
+    };
+
+    setSubjects([]);
+    setAttendanceData({});
+    setTimetable({});
+    setDailyOverrides({});
+    setLastPunch(null);
+    setAutoPunch(false);
+    setClassTimings(DEFAULT_TIMINGS);
+    setSelectedSubjects([]);
+    localStorage.removeItem('attendanceData');
+
+    try {
+      // Overwrite the entire Firestore document without merge to purge old fields
+      await setDoc(doc(db, 'users', currentUser.uid), emptyState, { merge: false });
+      return true;
+    } catch (err) {
+      console.error("Failed to delete all user data:", err);
+      throw err;
+    }
+  };
+
   const toggleSubjectExclusion = (index) => {
       setAttendanceData(prev => {
           const updated = { ...prev };
@@ -282,12 +350,11 @@ export const UserProvider = ({ children }) => {
   };
 
   const value = {
-    currentUser, subjects, attendanceData, timetable, profile, isLoading, 
+    currentUser, subjects, setSubjects, attendanceData, setAttendanceData, timetable, setTimetable, profile, isLoading, 
     activeModal, setActiveModal, closeModal: () => setActiveModal(null),
     isAdmin, lastPunch, dailyOverrides,
-    // Export Auto Punch State & Setters
     autoPunch, classTimings,
-    logout, // <--- ADDED LOGOUT HERE
+    logout,
     
     saveData, saveSubjects: (names) => saveData({ subjects: names }), 
     updateAttendanceData: (idx, field, val) => {
@@ -300,6 +367,8 @@ export const UserProvider = ({ children }) => {
         if(attendanceSaveTimer.current) clearTimeout(attendanceSaveTimer.current);
         attendanceSaveTimer.current = setTimeout(() => saveData({attendanceData: attendanceDataRef.current}), 1500);
     },
+    setSubjectPercentage,
+    deleteAllUserData,
     punchIn: (idx, p, status) => handlePunch(idx, p, status, false),
     undoPunchIn: (idx, p) => handlePunch(idx, p, null, true),
     checkForMissedAttendance, missedAttendance, batchPunchIn, markSubstitution,
