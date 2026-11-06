@@ -15,14 +15,16 @@ const CalculatorPanel = () => {
   const [lastCalcSummary, setLastCalcSummary] = useState('');
   const [staleMessage, setStaleMessage] = useState('');
 
-  const toNumber = (str, defaultVal = 0) => {
-    const n = Number(str);
+  const toNumber = (val, defaultVal = 0) => {
+    if (val === '' || val === null || val === undefined) return defaultVal;
+    const n = Number(val);
     return isNaN(n) ? defaultVal : n;
   };
 
   const calculateNeededClasses = (att, tot, req) => {
-    if (tot < att) return { error: "Attended cannot exceed total." };
-    const currentPerc = tot > 0 ? (att / tot) * 100 : 101;
+    if (tot < att) return { error: "Attended cannot exceed total classes held." };
+    if (tot === 0) return { classesNeeded: 0 };
+    const currentPerc = (att / tot) * 100;
     if (currentPerc >= req) return { classesNeeded: 0 };
     const numerator = (req / 100) * tot - att;
     const denominator = 1 - (req / 100);
@@ -31,8 +33,9 @@ const CalculatorPanel = () => {
   };
 
   const calculateBunkableClasses = (att, tot, req) => {
-    if (tot < att) return { error: "Attended cannot exceed total." };
-    const currentPerc = tot > 0 ? (att / tot) * 100 : 101;
+    if (tot < att) return { error: "Attended cannot exceed total classes held." };
+    if (tot === 0) return { bunkableClasses: 0 };
+    const currentPerc = (att / tot) * 100;
     if (currentPerc < req) return { bunkableClasses: 0 };
     const requiredDecimal = req / 100;
     return { bunkableClasses: Math.max(0, Math.floor((att - requiredDecimal * tot) / requiredDecimal)) };
@@ -44,14 +47,31 @@ const CalculatorPanel = () => {
     const subjectsToCalc = currentMode.includes('all') ? subjects.map((_, i) => i) : selectedSubjects;
     const isBunkMode = currentMode.includes('bunk');
     let summaryValue = 0;
+    const skippedSubjects = [];
+    let calculatedCount = 0;
 
     const individualResults = subjectsToCalc.map(index => {
-      const data = attendanceData[index] || { attended: '', total: '', requiredPerc: '75' };
+      const data = attendanceData[index] || { attended: '', total: '', requiredPerc: 75 };
 
-      const attendedNum = toNumber(data.attended);
-      const totalNum = toNumber(data.total);
+      const attendedNum = toNumber(data.attended, 0);
+      const totalNum = toNumber(data.total, 0);
       const requiredPercNum = toNumber(data.requiredPerc, 75);
 
+      // Check if subject has 0 total classes recorded
+      if (totalNum === 0) {
+        skippedSubjects.push(subjects[index]);
+        return {
+          subjectName: subjects[index],
+          attended: 0,
+          total: 0,
+          requiredPerc: requiredPercNum,
+          classesNeeded: 0,
+          bunkableClasses: 0,
+          isUnrecorded: true
+        };
+      }
+
+      calculatedCount++;
       const result = isBunkMode
         ? calculateBunkableClasses(attendedNum, totalNum, requiredPercNum)
         : calculateNeededClasses(attendedNum, totalNum, requiredPercNum);
@@ -60,20 +80,34 @@ const CalculatorPanel = () => {
         summaryValue += result.classesNeeded ?? result.bunkableClasses;
       }
 
-      return { subjectName: subjects[index], attended: attendedNum, total: totalNum, requiredPerc: requiredPercNum, ...result };
+      return {
+        subjectName: subjects[index],
+        attended: attendedNum,
+        total: totalNum,
+        requiredPerc: requiredPercNum,
+        isUnrecorded: false,
+        ...result
+      };
     });
 
-    const summaryText = isBunkMode ? `Total bunkable classes: ${summaryValue}` : `Total classes needed: ${summaryValue}`;
+    const summaryText = isBunkMode 
+      ? `Total bunkable classes: ${summaryValue}` 
+      : `Total classes needed: ${summaryValue}`;
     setLastCalcSummary(summaryText);
+
     setResultsData({
       individualResults,
-      summary: { type: isBunkMode ? 'bunk' : 'attend', value: individualResults.length > 1 ? summaryValue : null },
+      skippedSubjects,
+      summary: { 
+        type: isBunkMode ? 'bunk' : 'attend', 
+        value: calculatedCount > 1 ? summaryValue : null 
+      },
     });
   };
 
   const handleGetInsight = async () => {
     setIsInsightLoading(true);
-    const prompt = `You are an expert educational advisor. Based on attendance summary: "${lastCalcSummary}", give brief practical tactical recommendations for bunking safety, recovery, and test eligibility. Keep advice concise and student-focused.`;
+    const prompt = `You are an expert academic advisor. Based on attendance summary: "${lastCalcSummary}", give brief practical tactical recommendations for class attendance, bunk safety, recovery, and test eligibility. Keep advice concise and student-focused.`;
     try {
       const response = await getResultInsights(prompt);
       setInsight(response);
@@ -91,11 +125,11 @@ const CalculatorPanel = () => {
   ];
 
   return (
-    <div className="flex-1 apple-card p-6 flex flex-col justify-between">
+    <div className="flex-1 apple-card p-5 sm:p-6 flex flex-col justify-between">
       <div>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-white/10 gap-2 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-white/10 gap-2 mb-5">
           <div>
-            <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+            <h2 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
               <i className="fas fa-calculator text-sky-400"></i>
               Attendance & Bunk Forecaster
             </h2>
@@ -104,7 +138,7 @@ const CalculatorPanel = () => {
         </div>
 
         {/* Mode Selector */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
           {modes.map(m => {
             const isActive = currentMode === m.id;
             return (

@@ -99,7 +99,7 @@ const StatCard = ({ title, percentage, attended, total, isOverall = false, isSec
 };
 
 const AttendanceOverview = () => {
-  const { subjects, attendanceData, toggleSubjectExclusion, setSubjectPercentage } = useContext(UserContext);
+  const { subjects, attendanceData, toggleSubjectExclusion, setSubjectCounts } = useContext(UserContext);
   const [showDropdown, setShowDropdown] = useState(false);
   const [loadingItems, setLoadingItems] = useState({});
   const [editingSubject, setEditingSubject] = useState(null);
@@ -128,9 +128,9 @@ const AttendanceOverview = () => {
     }, 250);
   };
 
-  const handleSavePercentage = async (targetPct, totalClasses) => {
+  const handleSaveCounts = async (attended, total) => {
     if (editingSubject !== null) {
-      await setSubjectPercentage(editingSubject.index, targetPct, totalClasses);
+      await setSubjectCounts(editingSubject.index, attended, total);
       setEditingSubject(null);
     }
   };
@@ -267,7 +267,7 @@ const AttendanceOverview = () => {
           currentPercentage={editingSubject.percentage}
           currentAttended={editingSubject.attended}
           currentTotal={editingSubject.total}
-          onSave={handleSavePercentage}
+          onSave={handleSaveCounts}
           onClose={() => setEditingSubject(null)}
         />
       )}

@@ -9,7 +9,7 @@ const SubjectList = () => {
     selectedSubjects,
     handleSelectSubject,
     setActiveModal,
-    setSubjectPercentage,
+    setSubjectCounts,
   } = useContext(UserContext);
 
   const [sortMode, setSortMode] = useState('name'); 
@@ -38,9 +38,9 @@ const SubjectList = () => {
 
   const openEditModal = () => setActiveModal('editSubjects');
 
-  const handleSavePercentage = async (targetPct, totalClasses) => {
+  const handleSaveCounts = async (attended, total) => {
     if (editingSubject !== null) {
-      await setSubjectPercentage(editingSubject.index, targetPct, totalClasses);
+      await setSubjectCounts(editingSubject.index, attended, total);
       setEditingSubject(null);
     }
   };
@@ -157,7 +157,7 @@ const SubjectList = () => {
           currentPercentage={editingSubject.percentage}
           currentAttended={editingSubject.attended}
           currentTotal={editingSubject.total}
-          onSave={handleSavePercentage}
+          onSave={handleSaveCounts}
           onClose={() => setEditingSubject(null)}
         />
       )}

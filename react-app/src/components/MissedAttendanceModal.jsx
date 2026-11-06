@@ -20,9 +20,9 @@ const MissedAttendanceModal = () => {
       setSessionStatuses(initial);
       
       if (!startDate) {
-          const d = new Date();
-          d.setDate(d.getDate() - 7);
-          setStartDate(d.toISOString().slice(0, 10));
+        const d = new Date();
+        d.setDate(d.getDate() - 7);
+        setStartDate(d.toISOString().slice(0, 10));
       }
     }
   }, [missedAttendance]);
@@ -49,8 +49,8 @@ const MissedAttendanceModal = () => {
   };
 
   const handleRecheck = () => {
-      if(!startDate || !endDate) return;
-      checkForMissedAttendance(startDate, endDate);
+    if (!startDate || !endDate) return;
+    checkForMissedAttendance(startDate, endDate);
   };
 
   const groupedSessions = missedAttendance.sessions.reduce((acc, session) => {
@@ -60,101 +60,128 @@ const MissedAttendanceModal = () => {
   }, {});
 
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[60] p-4">
-      <div className="bg-gray-900 rounded-2xl w-full max-w-5xl flex flex-col max-h-[90vh] shadow-2xl border border-white/10">
+    <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[60] p-4 animate-in fade-in duration-200">
+      <div className="apple-card bg-[#0f131c]/98 border border-white/15 rounded-3xl w-full max-w-4xl flex flex-col max-h-[90vh] shadow-2xl overflow-hidden">
         
-        <div className="p-6 border-b border-white/10 bg-indigo-900/20 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        {/* Header */}
+        <div className="p-5 sm:p-6 border-b border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 flex-shrink-0">
           <div>
-              <h2 className="text-3xl font-bold text-white mb-1">Catch Up Attendance</h2>
-              <p className="text-white/70">
-                Found <strong>{missedAttendance.daysMissed} missed days</strong> in selected range.
-              </p>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="apple-badge text-[10px]">
+                <i className="fas fa-calendar-check text-sky-400"></i> Attendance Backlog
+              </span>
+            </div>
+            <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">Catch Up Attendance</h2>
+            <p className="text-xs text-white/50">
+              Identified <strong className="text-white">{missedAttendance.daysMissed} days</strong> with unrecorded lectures in schedule range.
+            </p>
           </div>
           
-          <div className="flex flex-col sm:flex-row items-end gap-2 bg-black/20 p-2 rounded-lg">
-             <div className="flex items-center gap-2">
-                 <div className="flex flex-col">
-                     <span className="text-[10px] text-white/50 uppercase font-bold">From</span>
-                     <input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} className="bg-white/10 border border-white/20 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-indigo-500"/>
-                 </div>
-                 <div className="flex flex-col">
-                     <span className="text-[10px] text-white/50 uppercase font-bold">To</span>
-                     <input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)} className="bg-white/10 border border-white/20 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-indigo-500"/>
-                 </div>
-             </div>
-             <button onClick={handleRecheck} className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-sm font-bold h-full">Check</button>
+          <div className="flex flex-wrap items-center gap-2 bg-white/[0.03] border border-white/10 p-2.5 rounded-2xl text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-white/40 uppercase font-semibold">From</span>
+              <input 
+                type="date" 
+                value={startDate} 
+                onChange={e => setStartDate(e.target.value)} 
+                className="bg-white/5 border border-white/10 rounded-xl px-2.5 py-1 text-xs text-white focus:outline-none focus:border-sky-500 font-mono"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-white/40 uppercase font-semibold">To</span>
+              <input 
+                type="date" 
+                value={endDate} 
+                onChange={e => setEndDate(e.target.value)} 
+                className="bg-white/5 border border-white/10 rounded-xl px-2.5 py-1 text-xs text-white focus:outline-none focus:border-sky-500 font-mono"
+              />
+            </div>
+            <button 
+              onClick={handleRecheck}
+              className="apple-btn-secondary text-xs px-3 py-1 text-sky-300 border-sky-500/30 hover:bg-sky-500/10"
+            >
+              Scan
+            </button>
           </div>
         </div>
 
-        <div className="flex-grow overflow-y-auto p-6">
+        {/* Content list of missed sessions */}
+        <div className="flex-grow overflow-y-auto p-5 sm:p-6 space-y-5">
           {missedAttendance.sessions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-white/50">
-                  <i className="fas fa-calendar-check text-4xl mb-3"></i>
-                  <p>No missed classes found in this range!</p>
-                  <p className="text-xs">Adjust dates above to check other periods.</p>
-              </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {Object.entries(groupedSessions).map(([dateLabel, sessions]) => (
-                <div key={dateLabel} className="bg-white/5 rounded-xl p-4 border border-white/5 hover:border-white/10 transition-colors">
-                    <h3 className="text-sm font-bold text-indigo-300 mb-3 uppercase tracking-wider border-b border-white/5 pb-2">{dateLabel}</h3>
-                    <div className="space-y-2">
-                    {sessions.map(session => {
-                        const key = `${session.date}-${session.period}-${session.subjectIndex}`;
-                        const status = sessionStatuses[key];
-                        const isAttended = status === 'attended';
-
-                        return (
-                        <div 
-                            key={key} 
-                            onClick={() => toggleStatus(session)}
-                            className={`flex justify-between items-center p-3 rounded-lg cursor-pointer transition-all border ${
-                            isAttended 
-                                ? 'bg-green-500/10 border-green-500/30 hover:bg-green-500/20' 
-                                : 'bg-red-500/10 border-red-500/30 hover:bg-red-500/20'
-                            }`}
-                        >
-                            <div className="flex items-center gap-3 overflow-hidden">
-                            <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold ${
-                                isAttended ? 'bg-green-500 text-black' : 'bg-red-500 text-white'
-                            }`}>
-                                {isAttended ? <i className="fas fa-check"></i> : <i className="fas fa-times"></i>}
-                            </div>
-                            <div className="min-w-0">
-                                <div className="font-semibold text-white truncate text-sm">{session.subjectName}</div>
-                                <div className="text-[10px] text-white/50">Period {session.period}</div>
-                            </div>
-                            </div>
-                        </div>
-                        );
-                    })}
-                    </div>
-                </div>
-                ))}
+            <div className="text-center py-12 text-white/50 border border-dashed border-white/10 rounded-2xl">
+              <i className="fas fa-circle-check text-2xl text-emerald-400 mb-2"></i>
+              <p className="text-sm font-semibold text-white">All Caught Up!</p>
+              <p className="text-xs text-white/40 mt-1">No missed attendance records found for this date range.</p>
             </div>
+          ) : (
+            Object.entries(groupedSessions).map(([displayDate, sessions]) => (
+              <div key={displayDate} className="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+                <div className="flex items-center justify-between pb-3 border-b border-white/5 mb-3">
+                  <span className="text-xs font-bold text-white tracking-tight flex items-center gap-2">
+                    <i className="fas fa-calendar-day text-sky-400 text-xs"></i>
+                    {displayDate}
+                  </span>
+                  <span className="text-[10px] font-mono text-white/40">{sessions.length} periods</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                  {sessions.map(session => {
+                    const key = `${session.date}-${session.period}-${session.subjectIndex}`;
+                    const status = sessionStatuses[key] || 'attended';
+                    const isAttended = status === 'attended';
+
+                    return (
+                      <div
+                        key={key}
+                        onClick={() => toggleStatus(session)}
+                        className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between gap-2 select-none ${
+                          isAttended 
+                            ? 'bg-emerald-500/10 border-emerald-500/30' 
+                            : 'bg-rose-500/10 border-rose-500/30'
+                        }`}
+                      >
+                        <div className="min-w-0 pr-1">
+                          <span className="font-mono text-[10px] text-white/40 block">P{session.period}</span>
+                          <span className="text-xs font-semibold text-white truncate block">
+                            {session.subjectName}
+                          </span>
+                        </div>
+
+                        <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border shrink-0 ${
+                          isAttended 
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' 
+                            : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                        }`}>
+                          {isAttended ? 'Present' : 'Bunked'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
           )}
         </div>
 
-        <div className="p-6 border-t border-white/10 flex flex-col sm:flex-row justify-between items-center bg-gray-900 rounded-b-2xl gap-4">
-          <div className="text-xs text-white/40">
-             <i className="fas fa-info-circle mr-1"></i>
-             Tap classes to mark as <strong>Absent</strong>. Default is Present.
-          </div>
-          <div className="flex gap-3 w-full sm:w-auto">
-              <button 
-                onClick={closeModal} 
-                className="flex-1 sm:flex-none px-6 py-3 rounded-xl border border-white/10 text-white/60 hover:bg-white/5 text-sm font-medium"
-              >
-                Cancel
-              </button>
-              {missedAttendance.sessions.length > 0 && (
-                <button 
-                    onClick={handleConfirm} 
-                    className="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-indigo-500/20 transition-all transform active:scale-95"
-                >
-                    Confirm Updates
-                </button>
-              )}
+        {/* Footer controls */}
+        <div className="p-4 sm:p-5 border-t border-white/10 flex items-center justify-between gap-3 flex-shrink-0 text-xs">
+          <span className="text-[11px] text-white/40 hidden sm:inline">
+            Tap any period card to toggle between Present and Bunked.
+          </span>
+          <div className="flex items-center gap-2.5 ml-auto">
+            <button 
+              onClick={closeModal}
+              className="apple-btn-secondary text-xs px-4 py-2"
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={handleConfirm}
+              disabled={missedAttendance.sessions.length === 0}
+              className="apple-btn-primary text-xs px-5 py-2 font-semibold disabled:opacity-40"
+            >
+              Apply All Punches ({missedAttendance.sessions.length})
+            </button>
           </div>
         </div>
 

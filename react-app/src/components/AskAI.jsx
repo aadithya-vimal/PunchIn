@@ -12,43 +12,58 @@ const AskAI = () => {
     if (!query.trim()) return;
     
     setIsLoading(true);
-    setResponse(''); // Clear previous
+    setResponse('');
     try {
       const res = await askSimpleAI(query);
       setResponse(res);
     } catch (error) {
-      setResponse("Sorry, I couldn't fetch an answer right now.");
+      setResponse("Could not retrieve AI response at this moment. Please check connection.");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 shadow-lg mb-8 mx-auto border border-white/10">
-      <div className="flex items-center gap-2 mb-3">
-         <span className="text-xl">🤖</span>
-         <h3 className="font-bold text-white text-lg">Quick AI Assist</h3>
+    <div className="apple-card p-5 sm:p-6 mb-8 border-white/10">
+      <div className="flex items-center gap-2.5 mb-3">
+        <div className="w-8 h-8 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center text-xs">
+          <i className="fas fa-brain"></i>
+        </div>
+        <div>
+          <h3 className="font-bold text-white text-sm sm:text-base tracking-tight">AI Academic Strategist</h3>
+          <p className="text-[11px] text-white/50">Ask quick questions regarding test criteria, exam eligibility, or schedule advice</p>
+        </div>
       </div>
       
-      <form onSubmit={handleAsk} className="flex gap-2 mb-0">
+      <form onSubmit={handleAsk} className="flex flex-col sm:flex-row gap-2 mt-4">
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ask a quick academic question..."
-          className="flex-grow bg-black/20 border border-white/20 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+          placeholder="e.g. How to maintain 75% with 2 labs per week?"
+          className="flex-grow bg-white/5 border border-white/10 rounded-2xl px-4 py-2.5 text-xs sm:text-sm text-white placeholder-white/30 focus:outline-none focus:border-sky-500 transition-colors"
         />
         <button 
           type="submit" 
           disabled={isLoading || !query.trim()}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50 transition-colors whitespace-nowrap"
+          className="apple-btn-primary text-xs px-5 py-2.5 flex items-center justify-center gap-2 disabled:opacity-40 shrink-0"
         >
-          {isLoading ? 'Thinking...' : 'Ask'}
+          {isLoading ? (
+            <>
+              <i className="fas fa-spinner fa-spin text-xs"></i>
+              <span>Thinking...</span>
+            </>
+          ) : (
+            <>
+              <i className="fas fa-paper-plane text-xs"></i>
+              <span>Ask Advisor</span>
+            </>
+          )}
         </button>
       </form>
 
       {response && (
-        <div className="mt-3 bg-black/20 rounded-lg p-3 text-sm text-white/90 border-l-4 border-indigo-500 animate-in fade-in slide-in-from-top-1 duration-300">
+        <div className="mt-4 p-4 rounded-2xl bg-white/[0.03] border border-white/10 text-xs text-white/90 leading-relaxed border-l-2 border-l-sky-400 animate-in fade-in duration-200">
           {response}
         </div>
       )}

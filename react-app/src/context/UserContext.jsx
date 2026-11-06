@@ -130,6 +130,29 @@ export const UserProvider = ({ children }) => {
     } catch (e) { console.error(e); }
   };
 
+  // Directly set attended (present) and total classes for a subject
+  const setSubjectCounts = async (subjectIndex, attended, total) => {
+    const numAttended = Math.max(0, parseInt(attended, 10) || 0);
+    const numTotal = Math.max(0, parseInt(total, 10) || 0);
+    let current = attendanceData[subjectIndex] || { attended: 0, total: 0, requiredPerc: 75, dailyStatus: {} };
+
+    const updatedSubject = {
+      ...current,
+      attended: numAttended,
+      total: numTotal
+    };
+
+    setAttendanceData(prev => ({
+      ...prev,
+      [subjectIndex]: updatedSubject
+    }));
+
+    if (currentUser) {
+      await saveSubjectAttendance(subjectIndex, updatedSubject);
+    }
+    return updatedSubject;
+  };
+
   // Directly set a target attendance percentage for a subject
   // Keeps existing total (or uses baseClasses) and sets attended classes to match exact target percentage
   const setSubjectPercentage = async (subjectIndex, targetPercent, baseTotalClasses = null) => {
@@ -367,6 +390,7 @@ export const UserProvider = ({ children }) => {
         if(attendanceSaveTimer.current) clearTimeout(attendanceSaveTimer.current);
         attendanceSaveTimer.current = setTimeout(() => saveData({attendanceData: attendanceDataRef.current}), 1500);
     },
+    setSubjectCounts,
     setSubjectPercentage,
     deleteAllUserData,
     punchIn: (idx, p, status) => handlePunch(idx, p, status, false),
