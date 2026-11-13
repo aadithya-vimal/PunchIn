@@ -19,6 +19,8 @@
 **Punch.In** is an all-in-one companion engineered for college students and engineers to eliminate exam eligibility anxiety. It transforms tedious attendance bookkeeping into a streamlined, automated, and mathematically certain process.
 
 Live product features:
+- **📸 Screenshot Academic Ingestion & OCR** — Take a screenshot, snip with `Ctrl+V`, or capture your college ERP portal screen directly. Punch.In automatically extracts course names, classes attended, total classes held, percentage ratios, and weekly Monday-Saturday timetable matrices.
+- **🔑 Zero-Server BYOK (Bring Your Own Key)** — Run the entire app on your own Google Gemini or Groq API key with zero third-party key storage or server-side rate limits. Directly test connectivity and swap between Gemini 2.5 Flash, Llama 3.3 70B, and Llama 3.2 Vision in one tap.
 - **Instant Attendance Percentage Editing** — Set or adjust any subject's percentage directly; Punch.In recalibrates your attended and total class counts automatically.
 - **The Bunk Engine** — Boundary-condition analysis ($Attended / (Total + B) \ge Req\%$) that projects safe consecutive skips, recovery attendance requirements, and custom condonation models.
 - **Collaborative Study Pods** — Connect with classmates via unique Pod IDs. Clone an entire semester's course catalog and weekly timetable in one tap, check group standings, and coordinate zero-penalty bunk days.
@@ -35,7 +37,7 @@ Live product features:
 - **Build & Optimization:** Vite 7 with Rollup manual chunks splitting (`vendor`, `firebase`)
 - **Backend & Sync:** Firebase Auth (Google OAuth & Email), Cloud Firestore, LocalStorage fallback
 - **Hosting:** Cloudflare Pages (with SPA `_redirects` and custom HTTP security headers)
-- **AI Planning:** Groq SDK (Llama 3 inference for personalized academic strategies)
+- **AI Intelligence & Vision:** Pure BYOK Architecture supporting Google Gemini (Gemini 2.5/2.0/1.5 Flash & Pro) and Groq (Llama 3.3 70B Versatile, Llama 3.2 Vision Preview, Llama 3.1 8B Instant)
 
 ---
 
