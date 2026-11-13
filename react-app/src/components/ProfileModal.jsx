@@ -1,5 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { UserContext } from '../context/UserContext.jsx';
+import { AIContext } from '../context/AIContext.jsx';
 
 const ProfileModal = () => {
   const { 
@@ -13,6 +14,13 @@ const ProfileModal = () => {
     setAttendanceData,
     deleteAllUserData 
   } = useContext(UserContext);
+
+  const {
+    openBYOKModal,
+    byokConfig,
+    hasActiveKey,
+    PROVIDERS
+  } = useContext(AIContext);
   
   const [displayName, setDisplayName] = useState(profile.displayName || '');
   const stats = getProfileStats();
@@ -141,6 +149,34 @@ const ProfileModal = () => {
               <p className="text-xs text-white/50 mt-0.5">Aggregate Attendance</p>
             </div>
           </div>
+        </div>
+
+        {/* AI & BYOK Configuration Section */}
+        <div className="mb-6 p-4 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center text-sm">
+              <i className="fas fa-key"></i>
+            </div>
+            <div>
+              <h4 className="text-xs font-semibold text-white">AI Engine & BYOK Keys</h4>
+              <p className="text-[11px] text-white/50">
+                {hasActiveKey()
+                  ? `Active: ${byokConfig.activeProvider === PROVIDERS.GOOGLE ? 'Google Gemini' : 'Groq Cloud'}`
+                  : 'No personal API key configured yet'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              closeModal();
+              openBYOKModal();
+            }}
+            className="apple-btn-secondary text-xs px-3.5 py-1.5 flex items-center gap-1.5"
+          >
+            <i className="fas fa-cog text-[10px]"></i>
+            <span>Configure</span>
+          </button>
         </div>
 
         {/* Status notification */}
