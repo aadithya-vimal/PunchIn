@@ -1,8 +1,10 @@
 import React, { useContext } from 'react';
 import { UserContext } from '../context/UserContext.jsx';
+import { AIContext } from '../context/AIContext.jsx';
 
 const TimetableGlance = () => {
   const { subjects, timetable, setActiveModal } = useContext(UserContext);
+  const { openScreenshotModal } = useContext(AIContext);
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const periods = Array.from({ length: 8 }, (_, i) => i + 1);
@@ -23,13 +25,23 @@ const TimetableGlance = () => {
           <p className="text-xs text-white/50">Comprehensive overview of weekly periods and scheduled free slots</p>
         </div>
 
-        <button
-          onClick={() => setActiveModal('timetable')}
-          className="apple-btn-primary text-xs px-4 py-2 flex items-center gap-1.5 self-start sm:self-auto"
-        >
-          <i className="fas fa-edit text-[10px]"></i>
-          <span>Edit Timetable</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={openScreenshotModal}
+            className="apple-btn-secondary text-xs px-3.5 py-2 flex items-center gap-1.5 text-sky-300 border-sky-500/30 hover:bg-sky-500/10"
+            title="Scan timetable from screenshot"
+          >
+            <i className="fas fa-camera text-[10px]"></i>
+            <span>Scan Timetable</span>
+          </button>
+          <button
+            onClick={() => setActiveModal('timetable')}
+            className="apple-btn-primary text-xs px-4 py-2 flex items-center gap-1.5"
+          >
+            <i className="fas fa-edit text-[10px]"></i>
+            <span>Edit Timetable</span>
+          </button>
+        </div>
       </div>
       
       {subjects.length === 0 ? (

@@ -1,5 +1,6 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { UserContext } from '../context/UserContext.jsx';
+import { AIContext } from '../context/AIContext.jsx';
 import EditPercentageModal from './EditPercentageModal.jsx';
 
 const SubjectList = () => {
@@ -11,6 +12,8 @@ const SubjectList = () => {
     setActiveModal,
     setSubjectCounts,
   } = useContext(UserContext);
+
+  const { openScreenshotModal } = useContext(AIContext);
 
   const [sortMode, setSortMode] = useState('name'); 
   const [sortedSubjectsData, setSortedSubjectsData] = useState([]);
@@ -53,13 +56,22 @@ const SubjectList = () => {
           <h2 className="text-lg font-bold text-white tracking-tight">Subjects</h2>
           <p className="text-xs text-white/50">{subjects.length} course{subjects.length === 1 ? '' : 's'} tracked</p>
         </div>
-        <button
-          title="Manage Subject Catalog"
-          onClick={openEditModal} 
-          className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 text-white/80 hover:text-white flex items-center justify-center transition-all text-xs"
-        >
-          <i className="fas fa-sliders-h"></i>
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            title="Scan attendance screenshot"
+            onClick={openScreenshotModal}
+            className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 text-sky-400 hover:text-sky-300 flex items-center justify-center transition-all text-xs"
+          >
+            <i className="fas fa-camera"></i>
+          </button>
+          <button
+            title="Manage Subject Catalog"
+            onClick={openEditModal} 
+            className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/15 border border-white/10 text-white/80 hover:text-white flex items-center justify-center transition-all text-xs"
+          >
+            <i className="fas fa-sliders-h"></i>
+          </button>
+        </div>
       </div>
 
       {/* Sorting Tabs */}

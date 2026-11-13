@@ -1,6 +1,7 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { UserContext } from '../context/UserContext.jsx';
+import { AIContext } from '../context/AIContext.jsx';
 
 // Core Components
 import DateTime from '../components/DateTime.jsx';
@@ -21,6 +22,8 @@ import TimetableModal from '../components/TimetableModal.jsx';
 import MissedAttendanceModal from '../components/MissedAttendanceModal.jsx';
 import AdminRecoveryPanel from '../components/AdminRecoveryPanel.jsx';
 import TimingsModal from '../components/TimingsModal.jsx';
+import BYOKModal from '../components/BYOKModal.jsx';
+import ScreenshotIngestModal from '../components/ScreenshotIngestModal.jsx';
 
 // Pods System
 import { PodProvider } from '../pods/PodContext.jsx';
@@ -51,6 +54,15 @@ function PodSection() {
 
 const HomePage = () => {
     const { currentUser, profile, logout, activeModal, setActiveModal, isAdmin, checkForMissedAttendance, autoPunch, saveData } = useContext(UserContext);
+    const {
+        isBYOKModalOpen,
+        openBYOKModal,
+        isScreenshotModalOpen,
+        openScreenshotModal,
+        byokConfig,
+        hasActiveKey,
+        PROVIDERS
+    } = useContext(AIContext);
 
     // App Visibility States
     const [podsOpen, setPodsOpen] = useState(false);
@@ -81,6 +93,8 @@ const HomePage = () => {
             {activeModal === 'timetable' && <TimetableModal />}
             {activeModal === 'missedAttendance' && <MissedAttendanceModal />}
             {timingsOpen && <TimingsModal onClose={() => setTimingsOpen(false)} />}
+            {isBYOKModalOpen && <BYOKModal />}
+            {isScreenshotModalOpen && <ScreenshotIngestModal />}
 
             {/* Top Navigation & Status Bar - Fully Responsive */}
             <div className="sticky top-0 z-40 backdrop-blur-xl bg-[#07090e]/85 border-b border-white/[0.06] px-3 sm:px-6 py-2.5 flex items-center justify-between gap-2">
@@ -96,6 +110,25 @@ const HomePage = () => {
                 </div>
 
                 <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                    {/* BYOK AI Provider Indicator Pill */}
+                    <button
+                        onClick={openBYOKModal}
+                        className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${
+                            hasActiveKey()
+                                ? 'bg-sky-500/10 border-sky-500/30 text-sky-400 hover:bg-sky-500/20'
+                                : 'bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20'
+                        }`}
+                        title="Configure BYOK API Keys (Google Gemini & Groq)"
+                    >
+                        <span className={`w-2 h-2 rounded-full ${hasActiveKey() ? 'bg-sky-400 animate-pulse' : 'bg-amber-400'}`}></span>
+                        <span className="hidden sm:inline">
+                            {hasActiveKey() 
+                                ? (byokConfig.activeProvider === PROVIDERS.GOOGLE ? 'Gemini AI' : 'Groq AI')
+                                : 'BYOK Key'}
+                        </span>
+                        <i className="fas fa-key text-[10px] opacity-70"></i>
+                    </button>
+
                     {/* Auto Punch Indicator Pill */}
                     <button 
                         onClick={handleAutoPunchToggle}
@@ -186,6 +219,14 @@ const HomePage = () => {
                         </div>
                         <div className="space-y-3 text-xs text-white/70 leading-relaxed">
                             <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/10">
+                                <strong className="text-white block mb-1">📸 Screenshot Ingestion & OCR:</strong>
+                                Take a screenshot or snip of your college attendance dashboard or timetable, press <kbd className="px-1 py-0.5 rounded bg-white/10 font-mono text-[10px]">Ctrl+V</kbd> or click "Scan Schedule" to automatically extract courses, counts, and timetable.
+                            </div>
+                            <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/10">
+                                <strong className="text-white block mb-1">🔑 Zero-Server BYOK (Bring Your Own Key):</strong>
+                                Punch.In runs completely on your own Google Gemini or Groq API key with zero intermediary servers. Click the key icon in the top bar to set or switch models.
+                            </div>
+                            <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/10">
                                 <strong className="text-white block mb-1">Direct Percentage Adjustments:</strong>
                                 Click the pen icon on any subject in the Subjects list or Attendance Overview to directly set your current attendance % or target.
                             </div>
@@ -225,8 +266,16 @@ const HomePage = () => {
                             {/* Quick Action Dock */}
                             <div className="flex items-center gap-2 flex-wrap">
                                 <button 
+                                    onClick={openScreenshotModal}
+                                    className="apple-btn-primary text-xs px-3.5 py-2 flex items-center gap-1.5 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 shadow-md shadow-sky-500/20"
+                                    title="Scan attendance portal or timetable screenshot"
+                                >
+                                    <i className="fas fa-camera text-xs"></i>
+                                    <span>Scan Schedule</span>
+                                </button>
+                                <button 
                                     onClick={() => setPodsOpen(true)}
-                                    className="apple-btn-primary text-xs px-3.5 py-2 flex items-center gap-1.5"
+                                    className="apple-btn-secondary text-xs px-3.5 py-2 flex items-center gap-1.5"
                                 >
                                     <i className="fas fa-users-viewfinder text-xs"></i>
                                     <span>Study Pods</span>

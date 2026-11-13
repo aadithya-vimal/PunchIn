@@ -1,5 +1,6 @@
 import React, { useContext, useState, useRef, useEffect } from 'react';
 import { UserContext } from '../context/UserContext.jsx';
+import { AIContext } from '../context/AIContext.jsx';
 import EditPercentageModal from './EditPercentageModal.jsx';
 
 const StatCard = ({ title, percentage, attended, total, isOverall = false, isSecondary = false, onEdit, children }) => {
@@ -100,6 +101,7 @@ const StatCard = ({ title, percentage, attended, total, isOverall = false, isSec
 
 const AttendanceOverview = () => {
   const { subjects, attendanceData, toggleSubjectExclusion, setSubjectCounts } = useContext(UserContext);
+  const { openScreenshotModal } = useContext(AIContext);
   const [showDropdown, setShowDropdown] = useState(false);
   const [loadingItems, setLoadingItems] = useState({});
   const [editingSubject, setEditingSubject] = useState(null);
@@ -161,9 +163,16 @@ const AttendanceOverview = () => {
           <i className="fas fa-layer-group text-lg"></i>
         </div>
         <h3 className="text-base font-semibold text-white mb-1">No Course Attendance Tracked</h3>
-        <p className="text-xs text-white/50 max-w-sm mx-auto">
-          Add your subjects from the sidebar or import your schedule from a peer Pod to begin calculating attendance stats.
+        <p className="text-xs text-white/50 max-w-sm mx-auto mb-4">
+          Add your subjects from the sidebar, or take a screenshot of your college portal to import subjects and attendance automatically.
         </p>
+        <button
+          onClick={openScreenshotModal}
+          className="apple-btn-primary text-xs px-4 py-2 inline-flex items-center gap-1.5"
+        >
+          <i className="fas fa-camera text-xs"></i>
+          <span>Auto-Import from Screenshot</span>
+        </button>
       </div>
     );
   }
@@ -175,10 +184,20 @@ const AttendanceOverview = () => {
           <h2 className="text-xl font-bold tracking-tight text-white">Attendance Overview</h2>
           <p className="text-xs text-white/50">Real-time status across official and customizable aggregate pools</p>
         </div>
-        <span className="apple-badge hidden sm:inline-flex">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          Live Sync
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={openScreenshotModal}
+            className="apple-btn-secondary text-xs px-3 py-1.5 hidden sm:inline-flex items-center gap-1.5 text-sky-300 border-sky-500/30 hover:bg-sky-500/10"
+            title="Update attendance from screenshot"
+          >
+            <i className="fas fa-camera text-[10px]"></i>
+            <span>Scan Portal</span>
+          </button>
+          <span className="apple-badge hidden sm:inline-flex">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            Live Sync
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">

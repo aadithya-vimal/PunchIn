@@ -1,8 +1,10 @@
 import React, { useState, useContext } from 'react';
 import { UserContext } from '../context/UserContext.jsx';
+import { AIContext } from '../context/AIContext.jsx';
 
 const EditSubjectsModal = () => {
   const { subjects, saveSubjects, closeModal } = useContext(UserContext);
+  const { openScreenshotModal } = useContext(AIContext);
   const [localSubjects, setLocalSubjects] = useState(
     subjects.map((name) => ({ id: Date.now() + Math.random(), name }))
   );
@@ -46,12 +48,27 @@ const EditSubjectsModal = () => {
               <p className="text-xs text-white/50">{localSubjects.length} subjects registered</p>
             </div>
           </div>
-          <button 
-            onClick={closeModal} 
-            className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/15 text-white/60 hover:text-white flex items-center justify-center text-xs"
-          >
-            <i className="fas fa-times"></i>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                closeModal();
+                openScreenshotModal();
+              }}
+              className="apple-btn-secondary text-xs px-3 py-1.5 flex items-center gap-1.5 text-sky-300 border-sky-500/30 hover:bg-sky-500/10"
+              title="Import subjects and attendance from screenshot"
+            >
+              <i className="fas fa-camera text-[11px]"></i>
+              <span className="hidden sm:inline">Import from Screenshot</span>
+              <span className="sm:hidden">Import</span>
+            </button>
+            <button 
+              onClick={closeModal} 
+              className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/15 text-white/60 hover:text-white flex items-center justify-center text-xs"
+            >
+              <i className="fas fa-times"></i>
+            </button>
+          </div>
         </div>
 
         {/* Scrollable list of subjects */}

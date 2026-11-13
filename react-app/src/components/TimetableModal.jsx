@@ -1,8 +1,10 @@
 import React, { useState, useContext } from 'react';
 import { UserContext } from '../context/UserContext.jsx';
+import { AIContext } from '../context/AIContext.jsx';
 
 const TimetableModal = () => {
   const { subjects, timetable, saveData, closeModal } = useContext(UserContext);
+  const { openScreenshotModal } = useContext(AIContext);
   const [localTimetable, setLocalTimetable] = useState(timetable || {});
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -48,12 +50,27 @@ const TimetableModal = () => {
               <p className="text-[11px] text-white/50">Map subjects or mark free / leisure periods across all 8 period slots</p>
             </div>
           </div>
-          <button 
-            onClick={closeModal} 
-            className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/15 text-white/60 hover:text-white flex items-center justify-center text-xs"
-          >
-            <i className="fas fa-times"></i>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                closeModal();
+                openScreenshotModal();
+              }}
+              className="apple-btn-secondary text-xs px-3 py-1.5 flex items-center gap-1.5 text-sky-300 border-sky-500/30 hover:bg-sky-500/10"
+              title="Scan and auto-fill timetable from a screenshot"
+            >
+              <i className="fas fa-camera text-[11px]"></i>
+              <span className="hidden sm:inline">Auto-Fill from Screenshot</span>
+              <span className="sm:hidden">Scan</span>
+            </button>
+            <button 
+              onClick={closeModal} 
+              className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/15 text-white/60 hover:text-white flex items-center justify-center text-xs"
+            >
+              <i className="fas fa-times"></i>
+            </button>
+          </div>
         </div>
 
         {/* Scrollable Matrix Table - Mobile Optimized */}
