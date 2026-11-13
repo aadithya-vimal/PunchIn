@@ -15,6 +15,24 @@ const getInitialAttendanceData = () => {
   }
 };
 
+const getInitialSubjects = () => {
+  try {
+    const stored = localStorage.getItem('subjects');
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+const getInitialTimetable = () => {
+  try {
+    const stored = localStorage.getItem('timetable');
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+};
+
 const DEFAULT_TIMINGS = {
     "1": "09:00",
     "2": "10:00",
@@ -32,9 +50,9 @@ export const UserProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   
-  const [subjects, setSubjects] = useState([]);
+  const [subjects, setSubjects] = useState(getInitialSubjects);
   const [attendanceData, setAttendanceData] = useState(getInitialAttendanceData);
-  const [timetable, setTimetable] = useState({});
+  const [timetable, setTimetable] = useState(getInitialTimetable);
   const [profile, setProfile] = useState({});
   const [lastPunch, setLastPunch] = useState(null);
   const [dailyOverrides, setDailyOverrides] = useState({});
@@ -105,16 +123,28 @@ export const UserProvider = ({ children }) => {
 
   // --- SAVE HELPERS ---
   const saveData = async (dataToSave) => {
-    if (!currentUser) return;
-    
     // Optimistic Updates
-    if ('subjects' in dataToSave) setSubjects(dataToSave.subjects);
-    if ('attendanceData' in dataToSave) setAttendanceData(dataToSave.attendanceData);
-    if ('timetable' in dataToSave) setTimetable(dataToSave.timetable);
+    if ('subjects' in dataToSave) {
+      setSubjects(dataToSave.subjects);
+      try { localStorage.setItem('subjects', JSON.stringify(dataToSave.subjects)); } catch {}
+    }
+    if ('attendanceData' in dataToSave) {
+      setAttendanceData(dataToSave.attendanceData);
+      try { localStorage.setItem('attendanceData', JSON.stringify(dataToSave.attendanceData)); } catch {}
+    }
+    if ('timetable' in dataToSave) {
+      setTimetable(dataToSave.timetable);
+      try { localStorage.setItem('timetable', JSON.stringify(dataToSave.timetable)); } catch {}
+    }
     if ('profile' in dataToSave) setProfile(dataToSave.profile);
     if ('dailyOverrides' in dataToSave) setDailyOverrides(dataToSave.dailyOverrides);
     if ('autoPunch' in dataToSave) setAutoPunch(dataToSave.autoPunch);
-    if ('classTimings' in dataToSave) setClassTimings(dataToSave.classTimings);
+    if ('classTimings' in dataToSave) {
+      setClassTimings(dataToSave.classTimings);
+      try { localStorage.setItem('classTimings', JSON.stringify(dataToSave.classTimings)); } catch {}
+    }
+
+    if (!currentUser) return;
 
     try {
       await setDoc(doc(db, 'users', currentUser.uid), dataToSave, { merge: true });
