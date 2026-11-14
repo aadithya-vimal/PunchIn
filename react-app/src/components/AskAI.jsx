@@ -40,10 +40,18 @@ const AskAI = () => {
     }
   };
 
-  const isKeyMissingError = errorMsg && (
-    errorMsg.toLowerCase().includes('key not entered') ||
-    errorMsg.toLowerCase().includes('api key is missing')
-  );
+  const errLower = (errorMsg || '').toLowerCase();
+  const isKeyMissingError = errLower.includes('key not entered') || errLower.includes('api key is missing') || errLower.includes('configure your');
+  const isModelError = errLower.includes('model') && (errLower.includes('not found') || errLower.includes('deprecated') || errLower.includes('unavailable') || errLower.includes('404'));
+  const isQuotaError = errLower.includes('quota') || errLower.includes('rate limit') || errLower.includes('429');
+
+  const errorButtonText = isKeyMissingError
+    ? 'Enter API Key'
+    : isModelError
+    ? 'Select / Ping Model'
+    : isQuotaError
+    ? 'Switch Provider'
+    : 'BYOK Settings';
 
   return (
     <div className="apple-card p-5 sm:p-6 mb-8 border-white/10">
@@ -103,18 +111,32 @@ const AskAI = () => {
         </button>
       </form>
 
-      {/* Proper Error Message Alert Box */}
+      {/* Proper Actionable Error Message Alert Box */}
       {errorMsg && (
         <div className={`mt-4 p-4 rounded-2xl text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in duration-150 ${
           isKeyMissingError
             ? 'bg-amber-500/10 border border-amber-500/30 text-amber-200'
+            : isModelError
+            ? 'bg-indigo-500/10 border border-indigo-500/30 text-indigo-200'
             : 'bg-rose-500/10 border border-rose-500/25 text-rose-200'
         }`}>
           <div className="flex items-center gap-2.5">
-            <i className={`fas ${isKeyMissingError ? 'fa-key text-amber-400 text-sm' : 'fa-exclamation-circle text-rose-400 text-sm'}`}></i>
+            <i className={`fas ${
+              isKeyMissingError 
+                ? 'fa-key text-amber-400 text-sm' 
+                : isModelError
+                ? 'fa-microchip text-indigo-400 text-sm'
+                : 'fa-exclamation-circle text-rose-400 text-sm'
+            }`}></i>
             <div>
               <p className="font-semibold text-white">
-                {isKeyMissingError ? 'API Key Not Entered' : 'AI Request Failed'}
+                {isKeyMissingError 
+                  ? 'API Key Not Configured' 
+                  : isModelError
+                  ? 'Model Unavailable or Not Found'
+                  : isQuotaError
+                  ? 'Rate Limit / Quota Exceeded'
+                  : 'AI Request Failed'}
               </p>
               <p className="text-[11px] opacity-90 mt-0.5">{errorMsg}</p>
             </div>
@@ -124,8 +146,8 @@ const AskAI = () => {
             onClick={openBYOKModal}
             className="apple-btn-primary text-xs px-3.5 py-1.5 shrink-0 self-end sm:self-auto flex items-center gap-1.5"
           >
-            <i className="fas fa-key text-[10px]"></i>
-            <span>{isKeyMissingError ? 'Enter API Key' : 'Review Key'}</span>
+            <i className="fas fa-sliders-h text-[10px]"></i>
+            <span>{errorButtonText}</span>
           </button>
         </div>
       )}

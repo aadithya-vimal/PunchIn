@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useContext } from 'react';
+import { AIContext } from '../context/AIContext.jsx';
 
 const Results = ({ results, onGetInsight, insight, isInsightLoading }) => {
+  const { openBYOKModal } = useContext(AIContext);
   // Gracefully handle prop format whether passed as results or resultsData
   const data = results?.individualResults ? results : results?.resultsData;
   if (!data || !data.individualResults || data.individualResults.length === 0) return null;
@@ -149,12 +151,46 @@ const Results = ({ results, onGetInsight, insight, isInsightLoading }) => {
           </button>
 
           {insight && (
-            <div className="mt-3 p-4 rounded-2xl bg-white/[0.02] border border-white/10 text-xs text-white/80 leading-relaxed prose-apple">
-              <div className="text-[10px] uppercase font-bold tracking-wider text-sky-400 mb-1.5 flex items-center gap-1.5">
-                <i className="fas fa-robot text-xs"></i> AI Planner Recommendation
-              </div>
-              <p>{insight}</p>
-            </div>
+            (() => {
+              const errLower = insight.toLowerCase();
+              const isError = errLower.includes('error') || 
+                              errLower.includes('key not entered') || 
+                              errLower.includes('failed') || 
+                              errLower.includes('quota') || 
+                              errLower.includes('rate limit') ||
+                              errLower.includes('configure');
+
+              if (isError) {
+                return (
+                  <div className="mt-3 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in duration-150">
+                    <div className="flex items-center gap-2.5">
+                      <i className="fas fa-exclamation-circle text-amber-400 text-sm"></i>
+                      <div>
+                        <p className="font-semibold text-white">AI Strategist Alert</p>
+                        <p className="text-[11px] opacity-90 mt-0.5">{insight}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={openBYOKModal}
+                      className="apple-btn-primary text-xs px-3.5 py-1.5 shrink-0 self-end sm:self-auto flex items-center gap-1.5"
+                    >
+                      <i className="fas fa-sliders-h text-[10px]"></i>
+                      <span>BYOK Settings</span>
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="mt-3 p-4 rounded-2xl bg-white/[0.02] border border-white/10 text-xs text-white/80 leading-relaxed prose-apple">
+                  <div className="text-[10px] uppercase font-bold tracking-wider text-sky-400 mb-1.5 flex items-center gap-1.5">
+                    <i className="fas fa-robot text-xs"></i> AI Planner Recommendation
+                  </div>
+                  <p>{insight}</p>
+                </div>
+              );
+            })()
           )}
         </div>
       )}

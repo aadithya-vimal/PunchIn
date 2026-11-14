@@ -112,7 +112,7 @@ const CalculatorPanel = () => {
       const response = await getResultInsights(prompt);
       setInsight(response);
     } catch (e) {
-      setInsight("Could not fetch insights. Please try again.");
+      setInsight(e.message || "Could not fetch insights. Please verify your BYOK settings and try again.");
     }
     setIsInsightLoading(false);
   };
