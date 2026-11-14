@@ -1,6 +1,15 @@
 // Automated Unit & Integration Tests for BYOK and Screenshot Parser Services
-import { parseCleanJSON, reconcileExtractedData, buildFinalMergePayload } from '../src/services/screenshotParser.js';
-import { PROVIDERS, GOOGLE_MODELS, GROQ_TEXT_MODELS, GROQ_VISION_MODELS, generateBYOKCompletion, analyzeBYOKVision } from '../src/services/byokService.js';
+import { parseCleanJSON, reconcileExtractedData, buildFinalMergePayload, computeArtifactDiff } from '../src/services/screenshotParser.js';
+import {
+  PROVIDERS,
+  GOOGLE_MODELS,
+  GROQ_TEXT_MODELS,
+  GROQ_VISION_MODELS,
+  generateBYOKCompletion,
+  analyzeBYOKVision,
+  formatBYOKError,
+  fetchAvailableModels
+} from '../src/services/byokService.js';
 
 let passed = 0;
 let failed = 0;
@@ -136,6 +145,78 @@ try {
     err.message.includes('API key not entered') || err.message.includes('key not entered'),
     `Vision throws "API key not entered" error: "${err.message}"`
   );
+}
+
+console.log('\n--- Testing formatBYOKError Formatter ---');
+const err401 = formatBYOKError({ status: 401, message: 'Unauthorized' }, PROVIDERS.GOOGLE);
+assert(err401.includes('Invalid or unauthorized Google Gemini API key'), 'Formats 401 unauthorized for Google');
+
+const err404 = formatBYOKError({ status: 404, message: 'model not found' }, PROVIDERS.GOOGLE, 'gemini-exp-custom');
+assert(err404.includes('gemini-exp-custom') && err404.includes('was not found or is unavailable'), 'Formats 404 model not found with custom model name');
+
+const err429 = formatBYOKError({ status: 429, message: 'Resource exhausted' }, PROVIDERS.GROQ);
+assert(err429.includes('rate limit or quota exceeded'), 'Formats 429 quota/rate limit error for Groq');
+
+const errOffline = formatBYOKError(new Error('Failed to fetch'));
+assert(errOffline.includes('Network connection failed'), 'Formats network connection failure');
+
+console.log('\n--- Testing computeArtifactDiff ---');
+const diffResult = computeArtifactDiff({
+  subjectMappings: [
+    {
+      selected: true,
+      isExisting: true,
+      matchedIndex: 0,
+      matchedName: 'Operating Systems',
+      extracted: { name: 'Operating Systems', attended: 18, total: 22 } // prev was 15/20 (75.0%), new is 18/22 (81.8%)
+    },
+    {
+      selected: true,
+      isExisting: false,
+      matchedIndex: -1,
+      extracted: { name: 'Distributed Systems', attended: 10, total: 10, percentage: 100 }
+    },
+    {
+      selected: true,
+      isExisting: true,
+      matchedIndex: 1,
+      matchedName: 'Database Management',
+      extracted: { name: 'Database Management', attended: 18, total: 22 } // unchanged from current
+    }
+  ],
+  extractedTimetable: {
+    monday: { '1': 'Operating Systems', '2': 'Distributed Systems' }
+  },
+  extractedTimings: { '1': '09:00', '2': '10:00' },
+  currentSubjects: ['Operating Systems', 'Database Management'],
+  currentAttendanceData: {
+    0: { attended: 15, total: 20 },
+    1: { attended: 18, total: 22 }
+  },
+  currentTimetable: {},
+  currentTimings: { '1': '09:00', '2': '10:15' },
+  options: {
+    updateAttendance: true,
+    updateTimetable: true,
+    updateTimings: true,
+    mergeMode: 'merge'
+  }
+});
+
+assert(diffResult.newSubjects.length === 1 && diffResult.newSubjects[0].name === 'Distributed Systems', 'Detects 1 new subject');
+assert(diffResult.updatedSubjects.length === 1 && diffResult.updatedSubjects[0].name === 'Operating Systems', 'Detects 1 updated subject with attendance change');
+assert(diffResult.updatedSubjects[0].diffAttended === 3, 'Calculates +3 attended diff');
+assert(diffResult.updatedSubjects[0].diffPercentage > 0, 'Calculates positive percentage delta');
+assert(diffResult.unchangedSubjects.length === 1, 'Detects 1 unchanged subject');
+assert(diffResult.timetableSlotsChanged === 2, 'Counts 2 timetable slots changed');
+assert(diffResult.timingsChanged === 1, 'Counts 1 period timing changed (P2: 10:15 -> 10:00)');
+
+console.log('\n--- Testing fetchAvailableModels Validation ---');
+try {
+  await fetchAvailableModels(PROVIDERS.GOOGLE, '');
+  assert(false, 'Should throw error when pinging with empty API key');
+} catch (err) {
+  assert(err.message.includes('API key must be entered') || err.message.includes('API key'), 'Pinging with empty key throws API key error');
 }
 
 console.log(`\n========================================`);
