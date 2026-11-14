@@ -6,7 +6,8 @@ import {
   fileToBase64,
   extractImageFromClipboard,
   reconcileExtractedData,
-  buildFinalMergePayload
+  buildFinalMergePayload,
+  computeArtifactDiff
 } from '../services/screenshotParser.js';
 
 const ScreenshotIngestModal = () => {
@@ -51,8 +52,24 @@ const ScreenshotIngestModal = () => {
   const [updateTimings, setUpdateTimings] = useState(true);
   const [mergeMode, setMergeMode] = useState('merge'); // 'merge' or 'replace'
 
-  // Success Feedback
+  // Success Feedback & Rollback
   const [appliedSuccess, setAppliedSuccess] = useState(false);
+  const [artifactDiff, setArtifactDiff] = useState(null);
+  const [isArtifactVerified, setIsArtifactVerified] = useState(false);
+  const [createBackupSnapshot, setCreateBackupSnapshot] = useState(true);
+  const [showFullImagePreview, setShowFullImagePreview] = useState(false);
+  const [hasExistingBackup, setHasExistingBackup] = useState(false);
+
+  useEffect(() => {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const existing = localStorage.getItem('punchin_schedule_backup');
+        setHasExistingBackup(!!existing);
+      } catch {
+        setHasExistingBackup(false);
+      }
+    }
+  }, []);
 
   const fileInputRef = useRef(null);
 
@@ -199,9 +216,55 @@ const ScreenshotIngestModal = () => {
     }));
   };
 
-  // Apply Changes to UserContext
+  // Step 3 -> 4: Compute Diff & Proceed to Confirmation
+  const handleProceedToConfirm = () => {
+    try {
+      const diff = computeArtifactDiff({
+        subjectMappings,
+        extractedTimetable,
+        extractedTimings,
+        currentSubjects: subjects || [],
+        currentAttendanceData: attendanceData || {},
+        currentTimetable: timetable || {},
+        currentTimings: classTimings || {},
+        options: {
+          updateAttendance,
+          updateTimetable,
+          updateTimings,
+          mergeMode
+        }
+      });
+      setArtifactDiff(diff);
+      setIsArtifactVerified(false);
+      setStep('confirm');
+    } catch (err) {
+      console.error('Failed to compute diff:', err);
+      setErrorMessage('Could not calculate schedule diff. ' + (err.message || ''));
+    }
+  };
+
+  // Apply Changes to UserContext with Optional Rollback Snapshot
   const handleApply = async () => {
     try {
+      // 1. Create automatic rollback recovery snapshot in localStorage
+      if (createBackupSnapshot && typeof localStorage !== 'undefined') {
+        try {
+          const snapshot = {
+            timestamp: new Date().toISOString(),
+            source: 'screenshot_ingest_backup',
+            subjects: subjects || [],
+            attendanceData: attendanceData || {},
+            timetable: timetable || {},
+            classTimings: classTimings || {}
+          };
+          localStorage.setItem('punchin_schedule_backup', JSON.stringify(snapshot));
+          setHasExistingBackup(true);
+        } catch (storageErr) {
+          console.warn('Could not store backup snapshot in localStorage:', storageErr);
+        }
+      }
+
+      // 2. Build merge payload
       const finalPayload = buildFinalMergePayload({
         subjectMappings,
         extractedTimetable,
@@ -218,6 +281,7 @@ const ScreenshotIngestModal = () => {
         }
       });
 
+      // 3. Save to app context and persistent storage
       await saveData(finalPayload);
       setAppliedSuccess(true);
       setTimeout(() => {
@@ -226,6 +290,30 @@ const ScreenshotIngestModal = () => {
     } catch (err) {
       console.error('Failed to apply schedule data:', err);
       setErrorMessage('Failed to save imported schedule. ' + (err.message || ''));
+    }
+  };
+
+  // Restore previous schedule from backup
+  const handleRestoreBackup = async () => {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      const raw = localStorage.getItem('punchin_schedule_backup');
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed.subjects && parsed.attendanceData) {
+        await saveData({
+          subjects: parsed.subjects,
+          attendanceData: parsed.attendanceData,
+          timetable: parsed.timetable || {},
+          classTimings: parsed.classTimings || {}
+        });
+        setAppliedSuccess(true);
+        setTimeout(() => {
+          closeScreenshotModal();
+        }, 1200);
+      }
+    } catch (err) {
+      setErrorMessage('Failed to restore backup snapshot: ' + err.message);
     }
   };
 
@@ -275,6 +363,37 @@ const ScreenshotIngestModal = () => {
 
         {/* Modal Body */}
         <div className="flex-grow overflow-y-auto pr-1 space-y-4">
+
+          {/* Step Progress Bar */}
+          <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs font-medium text-white/50 px-1 overflow-x-auto pb-1">
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full whitespace-nowrap transition-colors ${
+              step === 'input' ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30 font-semibold' : 'bg-white/[0.04]'
+            }`}>
+              <span className="w-3.5 h-3.5 rounded-full bg-white/10 flex items-center justify-center text-[9px] font-bold">1</span>
+              <span>Upload / Capture</span>
+            </div>
+            <i className="fas fa-chevron-right text-[8px] opacity-30"></i>
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full whitespace-nowrap transition-colors ${
+              step === 'analyzing' ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30 font-semibold' : 'bg-white/[0.04]'
+            }`}>
+              <span className="w-3.5 h-3.5 rounded-full bg-white/10 flex items-center justify-center text-[9px] font-bold">2</span>
+              <span>Vision OCR</span>
+            </div>
+            <i className="fas fa-chevron-right text-[8px] opacity-30"></i>
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full whitespace-nowrap transition-colors ${
+              step === 'review' ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30 font-semibold' : 'bg-white/[0.04]'
+            }`}>
+              <span className="w-3.5 h-3.5 rounded-full bg-white/10 flex items-center justify-center text-[9px] font-bold">3</span>
+              <span>Review Mappings</span>
+            </div>
+            <i className="fas fa-chevron-right text-[8px] opacity-30"></i>
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full whitespace-nowrap transition-colors ${
+              step === 'confirm' ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30 font-semibold' : 'bg-white/[0.04]'
+            }`}>
+              <span className="w-3.5 h-3.5 rounded-full bg-white/10 flex items-center justify-center text-[9px] font-bold">4</span>
+              <span>Verify & Confirm Diff</span>
+            </div>
+          </div>
           
           {/* Missing BYOK Warning */}
           {!hasActiveKey() && (
@@ -751,6 +870,267 @@ const ScreenshotIngestModal = () => {
             </div>
           )}
 
+          {/* STEP 4: ARTIFACT VERIFICATION & DIFF CONFIRMATION */}
+          {step === 'confirm' && (
+            <div className="space-y-4 animate-in fade-in duration-200">
+              
+              {/* Diff Metric Chips */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-400 block">New Courses</span>
+                  <span className="font-mono text-lg font-bold text-emerald-300">
+                    +{artifactDiff?.newSubjects?.length || 0}
+                  </span>
+                </div>
+                <div className="p-3 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-center">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-sky-400 block">Attendance Diffs</span>
+                  <span className="font-mono text-lg font-bold text-sky-300">
+                    {artifactDiff?.updatedSubjects?.length || 0}
+                  </span>
+                </div>
+                <div className="p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-center">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-400 block">Timetable Slots</span>
+                  <span className="font-mono text-lg font-bold text-indigo-300">
+                    {artifactDiff?.timetableSlotsChanged || 0}
+                  </span>
+                </div>
+                <div className="p-3 rounded-2xl bg-white/[0.04] border border-white/10 text-center">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-white/50 block">Unchanged</span>
+                  <span className="font-mono text-lg font-bold text-white/80">
+                    {artifactDiff?.unchangedSubjects?.length || 0}
+                  </span>
+                </div>
+              </div>
+
+              {/* Artifact & Diff Comparison Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                
+                {/* Left: Scanned Artifact Thumbnail Card */}
+                <div className="lg:col-span-4 p-3.5 rounded-2xl bg-white/[0.02] border border-white/10 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                        <i className="fas fa-image text-sky-400"></i> Scanned Artifact
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowFullImagePreview(true)}
+                        className="text-[10px] text-sky-400 hover:text-sky-300 flex items-center gap-1"
+                      >
+                        <i className="fas fa-expand-alt"></i> Zoom
+                      </button>
+                    </div>
+
+                    <div 
+                      onClick={() => setShowFullImagePreview(true)}
+                      className="relative rounded-xl overflow-hidden border border-white/10 group cursor-pointer aspect-video sm:aspect-auto max-h-48 bg-black/40 flex items-center justify-center"
+                    >
+                      <img 
+                        src={imagePreview} 
+                        alt="Scanned Academic Artifact" 
+                        className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-200"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-xs text-white gap-1.5 font-medium">
+                        <i className="fas fa-search-plus"></i> View Full Image
+                      </div>
+                    </div>
+
+                    <div className="mt-3 space-y-1.5 text-[11px] text-white/60">
+                      <div className="flex justify-between">
+                        <span>Model:</span>
+                        <span className="text-white font-mono">{activeProviderName}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Mode:</span>
+                        <span className="text-white uppercase font-mono">{scanMode}</span>
+                      </div>
+                      {extractedRaw?.collegeOrPortalName && (
+                        <div className="flex justify-between">
+                          <span>Portal:</span>
+                          <span className="text-sky-300 font-semibold">{extractedRaw.collegeOrPortalName}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {mergeMode === 'replace' && (
+                    <div className="mt-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-200 text-[10px]">
+                      ⚠️ <strong>Replace Mode Active:</strong> Your current courses and timetable will be completely replaced by this scan.
+                    </div>
+                  )}
+                </div>
+
+                {/* Right: Detailed Before vs After Changes Breakdown */}
+                <div className="lg:col-span-8 space-y-3">
+                  
+                  {/* Updated Attendance Diff Table */}
+                  {artifactDiff?.updatedSubjects?.length > 0 && (
+                    <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/10">
+                      <h4 className="text-xs font-bold text-white mb-2.5 flex items-center gap-1.5">
+                        <i className="fas fa-arrows-rotate text-sky-400"></i>
+                        Attendance Modifications Detected ({artifactDiff.updatedSubjects.length})
+                      </h4>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-[11px] text-left">
+                          <thead>
+                            <tr className="border-b border-white/10 text-white/40 uppercase font-mono text-[9px]">
+                              <th className="pb-2 font-semibold">Subject</th>
+                              <th className="pb-2 font-semibold">Current Recorded</th>
+                              <th className="pb-2 font-semibold"></th>
+                              <th className="pb-2 font-semibold">Scanned Artifact</th>
+                              <th className="pb-2 font-semibold text-right">Net Impact</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5 font-mono">
+                            {artifactDiff.updatedSubjects.map((sub, idx) => (
+                              <tr key={idx} className="hover:bg-white/[0.02]">
+                                <td className="py-2 pr-2 font-sans font-semibold text-white max-w-[140px] truncate" title={sub.name}>
+                                  {sub.name}
+                                </td>
+                                <td className="py-2 text-white/50">
+                                  {sub.oldAttended}/{sub.oldTotal} ({sub.oldPercentage}%)
+                                </td>
+                                <td className="py-2 text-sky-400 text-center font-sans">→</td>
+                                <td className="py-2 text-white font-bold">
+                                  {sub.newAttended}/{sub.newTotal} ({sub.newPercentage}%)
+                                </td>
+                                <td className="py-2 text-right">
+                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                    sub.diffPercentage >= 0
+                                      ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                                      : 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
+                                  }`}>
+                                    {sub.diffPercentage >= 0 ? `+${sub.diffPercentage}%` : `${sub.diffPercentage}%`}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* New Subjects List */}
+                  {artifactDiff?.newSubjects?.length > 0 && (
+                    <div className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/10">
+                      <h4 className="text-xs font-bold text-white mb-2 flex items-center gap-1.5">
+                        <i className="fas fa-plus-circle text-emerald-400"></i>
+                        New Subjects to Register ({artifactDiff.newSubjects.length})
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {artifactDiff.newSubjects.map((sub, idx) => (
+                          <div key={idx} className="px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs flex items-center gap-2">
+                            <span className="font-semibold text-white">{sub.name}</span>
+                            <span className="font-mono text-[10px] text-emerald-300 bg-emerald-500/20 px-1.5 py-0.5 rounded">
+                              {sub.attended}/{sub.total} ({sub.percentage}%)
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Timetable Slots Notice */}
+                  {updateTimetable && (artifactDiff?.timetableSlotsChanged || 0) > 0 && (
+                    <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-200 text-xs flex items-center gap-2">
+                      <i className="fas fa-calendar-check text-indigo-400 text-sm"></i>
+                      <span>
+                        <strong>{artifactDiff.timetableSlotsChanged} Timetable Slots</strong> mapped from screenshot across your weekly grid.
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Period Timings Notice */}
+                  {updateTimings && (artifactDiff?.timingsChanged || 0) > 0 && (
+                    <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-200 text-xs flex items-center gap-2">
+                      <i className="fas fa-clock text-sky-400 text-sm"></i>
+                      <span>
+                        <strong>{artifactDiff.timingsChanged} Period Timings</strong> detected and aligned to college bell schedule.
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Explicit Confirmation & Rollback Safeguards */}
+              <div className="p-4 rounded-2xl bg-sky-500/[0.06] border border-sky-500/25 space-y-3">
+                <div className="text-xs font-bold text-white flex items-center gap-2">
+                  <i className="fas fa-shield-halved text-sky-400"></i>
+                  <span>Academic Data Integrity Confirmation</span>
+                </div>
+
+                <label className="flex items-start gap-2.5 cursor-pointer text-xs text-white/90 group">
+                  <input
+                    type="checkbox"
+                    checked={isArtifactVerified}
+                    onChange={(e) => setIsArtifactVerified(e.target.checked)}
+                    className="mt-0.5 rounded border-white/20 text-sky-500 focus:ring-0 bg-white/10 w-4 h-4 cursor-pointer"
+                  />
+                  <span className="leading-tight group-hover:text-white">
+                    I have visually inspected the scanned artifact image and confirm the attendance percentages and course names are accurate.
+                  </span>
+                </label>
+
+                <label className="flex items-start gap-2.5 cursor-pointer text-xs text-white/70 group">
+                  <input
+                    type="checkbox"
+                    checked={createBackupSnapshot}
+                    onChange={(e) => setCreateBackupSnapshot(e.target.checked)}
+                    className="mt-0.5 rounded border-white/20 text-sky-500 focus:ring-0 bg-white/10 w-4 h-4 cursor-pointer"
+                  />
+                  <span className="leading-tight group-hover:text-white/90">
+                    Create an automatic rollback snapshot before applying (Recommended to revert anytime).
+                  </span>
+                </label>
+
+                {hasExistingBackup && (
+                  <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-white/50">
+                    <span>A previous recovery snapshot is saved in your browser.</span>
+                    <button
+                      type="button"
+                      onClick={handleRestoreBackup}
+                      className="text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1"
+                    >
+                      <i className="fas fa-clock-rotate-left text-[10px]"></i>
+                      <span>Restore Prior Snapshot</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+            </div>
+          )}
+
+          {/* Full Image Zoom Overlay Modal */}
+          {showFullImagePreview && imagePreview && (
+            <div 
+              className="fixed inset-0 z-50 bg-black/90 backdrop-blur-lg flex flex-col items-center justify-center p-4 animate-in fade-in duration-150"
+              onClick={() => setShowFullImagePreview(false)}
+            >
+              <div 
+                className="max-w-5xl max-h-[90vh] overflow-auto rounded-2xl border border-white/20 bg-[#0f131c] shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-3 border-b border-white/10 flex justify-between items-center text-xs text-white">
+                  <span className="font-semibold flex items-center gap-2">
+                    <i className="fas fa-magnifying-glass-plus text-sky-400"></i>
+                    Original Scanned Artifact
+                  </span>
+                  <button 
+                    onClick={() => setShowFullImagePreview(false)}
+                    className="apple-btn-secondary text-[11px] px-2.5 py-1"
+                  >
+                    Close (Esc)
+                  </button>
+                </div>
+                <div className="p-2">
+                  <img src={imagePreview} alt="Full Resolution Artifact" className="max-w-full h-auto rounded-lg" />
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
 
         {/* Modal Footer */}
@@ -768,9 +1148,29 @@ const ScreenshotIngestModal = () => {
 
               <button
                 type="button"
-                onClick={handleApply}
-                disabled={appliedSuccess}
+                onClick={handleProceedToConfirm}
                 className="apple-btn-primary text-xs px-6 py-2 flex items-center gap-2"
+              >
+                <span>Review & Confirm Changes (Step 4)</span>
+                <i className="fas fa-arrow-right text-[10px]"></i>
+              </button>
+            </>
+          ) : step === 'confirm' ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setStep('review')}
+                className="apple-btn-secondary text-xs px-4 py-2 flex items-center gap-1.5"
+              >
+                <i className="fas fa-arrow-left text-[10px]"></i>
+                <span>Back to Review</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleApply}
+                disabled={!isArtifactVerified || appliedSuccess}
+                className="apple-btn-primary text-xs px-6 py-2 flex items-center gap-2 disabled:opacity-40"
               >
                 {appliedSuccess ? (
                   <>
@@ -779,8 +1179,8 @@ const ScreenshotIngestModal = () => {
                   </>
                 ) : (
                   <>
-                    <i className="fas fa-wand-magic-sparkles"></i>
-                    <span>Apply to Punch.In Schedule</span>
+                    <i className="fas fa-shield-check"></i>
+                    <span>Confirm & Apply to Schedule</span>
                   </>
                 )}
               </button>

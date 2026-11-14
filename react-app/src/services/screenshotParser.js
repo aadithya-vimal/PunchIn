@@ -239,6 +239,51 @@ OUTPUT SCHEMA: Return ONLY a JSON object with this exact structure:
 };
 
 /**
+ * Optimize and downscale image client-side to prevent 413 Payload Too Large
+ */
+export const optimizeImageForOCR = (base64Data, maxDimension = 1920) => {
+  if (typeof window === 'undefined' || typeof Image === 'undefined') {
+    return Promise.resolve(base64Data);
+  }
+  return new Promise((resolve) => {
+    try {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width <= maxDimension && height <= maxDimension && base64Data.length < 2 * 1024 * 1024) {
+          return resolve(base64Data);
+        }
+
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const mime = base64Data.startsWith('data:image/png') ? 'image/png' : 'image/jpeg';
+        resolve(canvas.toDataURL(mime, 0.88));
+      };
+      img.onerror = () => resolve(base64Data);
+      img.src = base64Data;
+    } catch {
+      resolve(base64Data);
+    }
+  });
+};
+
+/**
  * Main Screenshot Analysis Method
  */
 export const analyzeScreenshot = async ({
@@ -251,14 +296,15 @@ export const analyzeScreenshot = async ({
     throw new Error('No screenshot image provided.');
   }
 
-  if (onProgress) onProgress('Encoding screenshot & preparing AI Vision payload...');
-
-  const prompt = BUILD_ANALYSIS_PROMPT(mode);
+  if (onProgress) onProgress('Optimizing screenshot dimensions and contrast for Vision OCR...');
+  const optimizedBase64 = await optimizeImageForOCR(imageBase64);
 
   if (onProgress) onProgress('Transmitting to Vision Model (Extracting subjects & timetable)...');
 
+  const prompt = BUILD_ANALYSIS_PROMPT(mode);
+
   const rawResult = await analyzeBYOKVision({
-    imageBase64,
+    imageBase64: optimizedBase64,
     mimeType,
     prompt,
     systemPrompt: EXTRACTION_SYSTEM_PROMPT
@@ -512,5 +558,100 @@ export const buildFinalMergePayload = ({
     attendanceData: finalAttendance,
     timetable: finalTimetable,
     classTimings: finalTimings
+  };
+};
+
+/**
+ * Compute detailed diff between current state and scanned artifacts for user confirmation
+ */
+export const computeArtifactDiff = ({
+  subjectMappings = [],
+  extractedTimetable = {},
+  extractedTimings = null,
+  currentSubjects = [],
+  currentAttendanceData = {},
+  currentTimetable = {},
+  currentTimings = {},
+  options = {}
+}) => {
+  const newSubjects = [];
+  const updatedSubjects = [];
+  const unchangedSubjects = [];
+
+  subjectMappings.forEach(mapping => {
+    if (!mapping.selected) return;
+
+    const ext = mapping.extracted;
+    const isExisting = mapping.isExisting && mapping.matchedIndex !== -1;
+
+    if (!isExisting || options.mergeMode === 'replace') {
+      newSubjects.push({
+        name: ext.name,
+        code: ext.code,
+        attended: ext.attended,
+        total: ext.total,
+        percentage: ext.percentage
+      });
+    } else {
+      const prev = currentAttendanceData[mapping.matchedIndex] || { attended: 0, total: 0 };
+      const prevAtt = Number(prev.attended) || 0;
+      const prevTot = Number(prev.total) || 0;
+      const prevPct = prevTot > 0 ? Number(((prevAtt / prevTot) * 100).toFixed(1)) : 0;
+      const newPct = ext.total > 0 ? Number(((ext.attended / ext.total) * 100).toFixed(1)) : 0;
+
+      if (prevAtt !== ext.attended || prevTot !== ext.total) {
+        updatedSubjects.push({
+          name: mapping.matchedName || ext.name,
+          oldAttended: prevAtt,
+          newAttended: ext.attended,
+          oldTotal: prevTot,
+          newTotal: ext.total,
+          oldPercentage: prevPct,
+          newPercentage: newPct,
+          diffAttended: ext.attended - prevAtt,
+          diffTotal: ext.total - prevTot,
+          diffPercentage: Number((newPct - prevPct).toFixed(1))
+        });
+      } else {
+        unchangedSubjects.push({
+          name: mapping.matchedName || ext.name,
+          attended: ext.attended,
+          total: ext.total,
+          percentage: newPct
+        });
+      }
+    }
+  });
+
+  // Calculate timetable changes count
+  let timetableSlotsChanged = 0;
+  const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  if (options.updateTimetable && extractedTimetable) {
+    days.forEach(day => {
+      const daySlots = extractedTimetable[day] || {};
+      for (let p = 1; p <= 8; p++) {
+        if (daySlots[String(p)] !== undefined) {
+          timetableSlotsChanged++;
+        }
+      }
+    });
+  }
+
+  // Calculate timings changes count
+  let timingsChanged = 0;
+  if (options.updateTimings && extractedTimings) {
+    for (let p = 1; p <= 8; p++) {
+      if (extractedTimings[String(p)] && extractedTimings[String(p)] !== currentTimings[String(p)]) {
+        timingsChanged++;
+      }
+    }
+  }
+
+  return {
+    newSubjects,
+    updatedSubjects,
+    unchangedSubjects,
+    timetableSlotsChanged,
+    timingsChanged
   };
 };
