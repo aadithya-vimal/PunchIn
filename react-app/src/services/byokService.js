@@ -111,6 +111,158 @@ export const hasAnyKey = (config = loadBYOKConfig()) => {
 };
 
 /**
+ * Format raw API errors into clean, informative, user-friendly instructions
+ */
+export const formatBYOKError = (rawError, provider = 'ai', model = '') => {
+  if (!rawError) return 'An unexpected AI error occurred.';
+
+  const message = typeof rawError === 'string' ? rawError : rawError.message || String(rawError);
+  const status = rawError.status || 0;
+  const lower = message.toLowerCase();
+
+  // Missing Key
+  if (lower.includes('key not entered') || lower.includes('key is missing') || lower.includes('api key is required')) {
+    const pName = provider === PROVIDERS.GOOGLE ? 'Google Gemini' : 'Groq';
+    return `API key not entered. Please configure your ${pName} API key in BYOK Settings.`;
+  }
+
+  // Invalid Key
+  if (
+    status === 401 ||
+    status === 403 ||
+    lower.includes('api_key_invalid') ||
+    lower.includes('invalid api key') ||
+    lower.includes('invalid_api_key') ||
+    lower.includes('unauthenticated') ||
+    lower.includes('permission_denied')
+  ) {
+    const pName = provider === PROVIDERS.GOOGLE ? 'Google Gemini' : 'Groq';
+    return `Invalid or unauthorized ${pName} API key. Please verify or update your key in BYOK Settings.`;
+  }
+
+  // Model Not Found / 404
+  if (
+    status === 404 ||
+    lower.includes('not found') ||
+    lower.includes('does not exist') ||
+    lower.includes('not supported for generatecontent') ||
+    lower.includes('model_not_found')
+  ) {
+    const pName = provider === PROVIDERS.GOOGLE ? 'Google Gemini' : 'Groq';
+    return `Model "${model || 'specified'}" was not found or is unavailable for your ${pName} account/region. You can type a custom model ID or click "Fetch Live Models" in BYOK Settings.`;
+  }
+
+  // Rate limit / Quota
+  if (
+    status === 429 ||
+    lower.includes('429') ||
+    lower.includes('quota') ||
+    lower.includes('resource_exhausted') ||
+    lower.includes('rate_limit') ||
+    lower.includes('rate limit')
+  ) {
+    const pName = provider === PROVIDERS.GOOGLE ? 'Google Gemini' : 'Groq';
+    return `${pName} rate limit or quota exceeded. Please wait a moment, switch to another model, or swap providers in BYOK Settings.`;
+  }
+
+  // Service unavailable
+  if (status === 503 || status === 500 || lower.includes('overloaded') || lower.includes('unavailable')) {
+    const pName = provider === PROVIDERS.GOOGLE ? 'Google' : 'Groq';
+    return `${pName} service is momentarily overloaded. Please retry in a few moments.`;
+  }
+
+  // Network offline
+  if (lower.includes('failed to fetch') || lower.includes('networkerror') || lower.includes('network request failed')) {
+    return 'Network connection failed. Please check your internet connectivity.';
+  }
+
+  return message;
+};
+
+/**
+ * Fetch live available models for an API key directly from Google or Groq
+ */
+export const fetchAvailableModels = async (provider, apiKey) => {
+  if (!apiKey || apiKey.trim().length < 5) {
+    throw new Error('API key must be entered before fetching available models.');
+  }
+
+  const trimmedKey = apiKey.trim();
+
+  if (provider === PROVIDERS.GOOGLE) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${trimmedKey}`;
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        const err = new Error(data.error?.message || `HTTP ${res.status}`);
+        err.status = res.status;
+        throw new Error(formatBYOKError(err, PROVIDERS.GOOGLE));
+      }
+
+      const rawModels = data.models || [];
+      const models = rawModels
+        .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+        .map(m => {
+          const id = m.name.replace(/^models\//, '');
+          return {
+            id,
+            name: m.displayName || id,
+            description: m.description || '',
+            vision: true,
+            isCustom: false
+          };
+        });
+
+      return models;
+    } catch (err) {
+      if (err.message?.includes('API key') || err.message?.includes('Invalid')) throw err;
+      throw new Error(formatBYOKError(err, PROVIDERS.GOOGLE));
+    }
+  }
+
+  if (provider === PROVIDERS.GROQ) {
+    const url = 'https://api.groq.com/openai/v1/models';
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${trimmedKey}`
+        }
+      });
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        const err = new Error(data.error?.message || `HTTP ${res.status}`);
+        err.status = res.status;
+        throw new Error(formatBYOKError(err, PROVIDERS.GROQ));
+      }
+
+      const rawModels = data.data || [];
+      const models = rawModels
+        .filter(m => m.active !== false)
+        .map(m => {
+          const lowerId = m.id.toLowerCase();
+          const isVision = lowerId.includes('vision') || lowerId.includes('vl') || lowerId.includes('scout');
+          return {
+            id: m.id,
+            name: m.id,
+            vision: isVision,
+            ownedBy: m.owned_by || 'Groq'
+          };
+        });
+
+      return models;
+    } catch (err) {
+      if (err.message?.includes('API key') || err.message?.includes('Invalid')) throw err;
+      throw new Error(formatBYOKError(err, PROVIDERS.GROQ));
+    }
+  }
+
+  throw new Error(`Unknown provider: ${provider}`);
+};
+
+/**
  * Test API key connectivity and latency for a specific provider
  */
 export const testConnection = async (provider, apiKey, modelId) => {
@@ -138,7 +290,9 @@ export const testConnection = async (provider, apiKey, modelId) => {
       const latency = Math.round(performance.now() - startTime);
 
       if (!res.ok || data.error) {
-        const msg = data.error?.message || `HTTP ${res.status}: ${res.statusText}`;
+        const err = new Error(data.error?.message || `HTTP ${res.status}: ${res.statusText}`);
+        err.status = res.status;
+        const msg = formatBYOKError(err, PROVIDERS.GOOGLE, model);
         return { success: false, error: msg, latency };
       }
 
@@ -168,7 +322,9 @@ export const testConnection = async (provider, apiKey, modelId) => {
       const latency = Math.round(performance.now() - startTime);
 
       if (!res.ok || data.error) {
-        const msg = data.error?.message || `HTTP ${res.status}: ${res.statusText}`;
+        const err = new Error(data.error?.message || `HTTP ${res.status}: ${res.statusText}`);
+        err.status = res.status;
+        const msg = formatBYOKError(err, PROVIDERS.GROQ, model);
         return { success: false, error: msg, latency };
       }
 
@@ -179,7 +335,7 @@ export const testConnection = async (provider, apiKey, modelId) => {
     return { success: false, error: 'Unknown provider.' };
   } catch (err) {
     const latency = Math.round(performance.now() - startTime);
-    return { success: false, error: err.message || 'Network request failed', latency };
+    return { success: false, error: formatBYOKError(err, provider, modelId), latency };
   }
 };
 
@@ -236,25 +392,25 @@ export const generateBYOKCompletion = async ({
       body.system_instruction = { parts: [{ text: sysInstruction }] };
     }
 
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
 
-    const data = await res.json();
-    if (!res.ok || data.error) {
-      const errorMsg = data.error?.message || `Google API Error (${res.status})`;
-      if (res.status === 400 && errorMsg.includes('API_KEY_INVALID')) {
-        throw new Error('Invalid Google Gemini API key. Please check or re-enter your key in BYOK Settings.');
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        const err = new Error(data.error?.message || `Google API Error (${res.status})`);
+        err.status = res.status;
+        throw new Error(formatBYOKError(err, PROVIDERS.GOOGLE, model));
       }
-      if (res.status === 429) {
-        throw new Error('Google Gemini rate limit / quota exceeded. Please try again shortly or switch to Groq.');
-      }
-      throw new Error(errorMsg);
+
+      return data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated.';
+    } catch (e) {
+      if (e.message?.startsWith('API key not entered')) throw e;
+      throw new Error(formatBYOKError(e, PROVIDERS.GOOGLE, model));
     }
-
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated.';
   }
 
   if (provider === PROVIDERS.GROQ) {
@@ -271,33 +427,33 @@ export const generateBYOKCompletion = async ({
     }
     formattedMessages.push(...messages);
 
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.groqApiKey.trim()}`
-      },
-      body: JSON.stringify({
-        model,
-        messages: formattedMessages,
-        temperature,
-        max_tokens: maxTokens
-      })
-    });
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${config.groqApiKey.trim()}`
+        },
+        body: JSON.stringify({
+          model,
+          messages: formattedMessages,
+          temperature,
+          max_tokens: maxTokens
+        })
+      });
 
-    const data = await res.json();
-    if (!res.ok || data.error) {
-      const errorMsg = data.error?.message || `Groq API Error (${res.status})`;
-      if (res.status === 401 || errorMsg.includes('Invalid API Key') || errorMsg.includes('invalid_api_key')) {
-        throw new Error('Invalid Groq API key. Please check or re-enter your key in BYOK Settings.');
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        const err = new Error(data.error?.message || `Groq API Error (${res.status})`);
+        err.status = res.status;
+        throw new Error(formatBYOKError(err, PROVIDERS.GROQ, model));
       }
-      if (res.status === 429) {
-        throw new Error('Groq rate limit exceeded. Please wait a moment or switch to Gemini.');
-      }
-      throw new Error(errorMsg);
+
+      return data.choices?.[0]?.message?.content || 'No response generated.';
+    } catch (e) {
+      if (e.message?.startsWith('API key not entered')) throw e;
+      throw new Error(formatBYOKError(e, PROVIDERS.GROQ, model));
     }
-
-    return data.choices?.[0]?.message?.content || 'No response generated.';
   }
 
   throw new Error(`Unsupported AI provider: ${provider}`);
@@ -362,18 +518,25 @@ export const analyzeBYOKVision = async ({
       body.system_instruction = { parts: [{ text: systemPrompt }] };
     }
 
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
 
-    const data = await res.json();
-    if (!res.ok || data.error) {
-      throw new Error(data.error?.message || `Google Vision Error (${res.status})`);
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        const err = new Error(data.error?.message || `Google Vision Error (${res.status})`);
+        err.status = res.status;
+        throw new Error(formatBYOKError(err, PROVIDERS.GOOGLE, model));
+      }
+
+      return data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+    } catch (e) {
+      if (e.message?.startsWith('API key not entered')) throw e;
+      throw new Error(formatBYOKError(e, PROVIDERS.GOOGLE, model));
     }
-
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
   }
 
   if (provider === PROVIDERS.GROQ) {
@@ -402,27 +565,34 @@ export const analyzeBYOKVision = async ({
       ]
     });
 
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.groqApiKey.trim()}`
-      },
-      body: JSON.stringify({
-        model: visionModel,
-        messages,
-        temperature: 0.1,
-        max_tokens: 4096,
-        response_format: { type: 'json_object' }
-      })
-    });
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${config.groqApiKey.trim()}`
+        },
+        body: JSON.stringify({
+          model: visionModel,
+          messages,
+          temperature: 0.1,
+          max_tokens: 4096,
+          response_format: { type: 'json_object' }
+        })
+      });
 
-    const data = await res.json();
-    if (!res.ok || data.error) {
-      throw new Error(data.error?.message || `Groq Vision Error (${res.status})`);
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        const err = new Error(data.error?.message || `Groq Vision Error (${res.status})`);
+        err.status = res.status;
+        throw new Error(formatBYOKError(err, PROVIDERS.GROQ, visionModel));
+      }
+
+      return data.choices?.[0]?.message?.content || '{}';
+    } catch (e) {
+      if (e.message?.startsWith('API key not entered')) throw e;
+      throw new Error(formatBYOKError(e, PROVIDERS.GROQ, visionModel));
     }
-
-    return data.choices?.[0]?.message?.content || '{}';
   }
 
   throw new Error('Please configure either a Google Gemini or Groq API key to use Vision scanning.');

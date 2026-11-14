@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { AIContext } from '../context/AIContext.jsx';
 
 const BYOKModal = () => {
@@ -6,6 +6,7 @@ const BYOKModal = () => {
     byokConfig,
     updateBYOK,
     testConnection,
+    fetchAvailableModels,
     closeBYOKModal,
     PROVIDERS,
     GOOGLE_MODELS,
@@ -24,10 +25,69 @@ const BYOKModal = () => {
   const [showGoogleKey, setShowGoogleKey] = useState(false);
   const [showGroqKey, setShowGroqKey] = useState(false);
 
-  // Testing state
+  // Custom model typing toggles
+  const isDefaultGoogleModel = GOOGLE_MODELS.some(m => m.id === googleModel);
+  const [isCustomGoogle, setIsCustomGoogle] = useState(!isDefaultGoogleModel);
+
+  const isDefaultGroqModel = GROQ_TEXT_MODELS.some(m => m.id === groqModel);
+  const [isCustomGroq, setIsCustomGroq] = useState(!isDefaultGroqModel);
+
+  const isDefaultGroqVisionModel = GROQ_VISION_MODELS.some(m => m.id === groqVisionModel);
+  const [isCustomGroqVision, setIsCustomGroqVision] = useState(!isDefaultGroqVisionModel);
+
+  // Live Fetched Models State
+  const [fetchedGoogleModels, setFetchedGoogleModels] = useState([]);
+  const [fetchedGroqModels, setFetchedGroqModels] = useState([]);
+  const [isFetchingModels, setIsFetchingModels] = useState(false);
+  const [fetchStatus, setFetchStatus] = useState(null);
+
+  // Testing & Save feedback
   const [testingProvider, setTestingProvider] = useState(null);
   const [testResult, setTestResult] = useState(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Handler to fetch live models from Google or Groq
+  const handleFetchLiveModels = async (provider, keyToUse) => {
+    const key = keyToUse || (provider === PROVIDERS.GOOGLE ? googleApiKey : groqApiKey);
+    if (!key || key.trim().length < 5) {
+      setFetchStatus({
+        provider,
+        success: false,
+        message: 'Please enter a valid API key first to discover available models.'
+      });
+      return;
+    }
+
+    setIsFetchingModels(true);
+    setFetchStatus(null);
+
+    try {
+      const models = await fetchAvailableModels(provider, key);
+      if (provider === PROVIDERS.GOOGLE) {
+        setFetchedGoogleModels(models);
+        setFetchStatus({
+          provider,
+          success: true,
+          message: `Discovered ${models.length} active Gemini models for your account & region.`
+        });
+      } else {
+        setFetchedGroqModels(models);
+        setFetchStatus({
+          provider,
+          success: true,
+          message: `Discovered ${models.length} active Groq LPU models.`
+        });
+      }
+    } catch (err) {
+      setFetchStatus({
+        provider,
+        success: false,
+        message: err.message || 'Failed to fetch live models.'
+      });
+    } finally {
+      setIsFetchingModels(false);
+    }
+  };
 
   const handleTestKey = async (provider) => {
     setTestingProvider(provider);
@@ -39,6 +99,11 @@ const BYOKModal = () => {
     const result = await testConnection(provider, key, model);
     setTestingProvider(null);
     setTestResult({ provider, ...result });
+
+    // If key tested successfully, auto-fetch available models
+    if (result.success) {
+      handleFetchLiveModels(provider, key);
+    }
   };
 
   const handleSave = (e) => {
@@ -46,10 +111,10 @@ const BYOKModal = () => {
     updateBYOK({
       activeProvider: activeTab,
       googleApiKey: googleApiKey.trim(),
-      googleModel,
+      googleModel: googleModel.trim() || 'gemini-2.5-flash',
       groqApiKey: groqApiKey.trim(),
-      groqModel,
-      groqVisionModel
+      groqModel: groqModel.trim() || 'llama-3.3-70b-versatile',
+      groqVisionModel: groqVisionModel.trim() || 'llama-3.2-11b-vision-preview'
     });
     setSaveSuccess(true);
     setTimeout(() => {
@@ -60,6 +125,22 @@ const BYOKModal = () => {
 
   const isGoogleConfigured = Boolean(googleApiKey && googleApiKey.trim().length > 5);
   const isGroqConfigured = Boolean(groqApiKey && groqApiKey.trim().length > 5);
+
+  // Combine fetched models with defaults without duplicates
+  const allGoogleModels = [
+    ...fetchedGoogleModels,
+    ...GOOGLE_MODELS.filter(def => !fetchedGoogleModels.some(f => f.id === def.id))
+  ];
+
+  const groqTextList = [
+    ...fetchedGroqModels.filter(m => !m.vision),
+    ...GROQ_TEXT_MODELS.filter(def => !fetchedGroqModels.some(f => f.id === def.id))
+  ];
+
+  const groqVisionList = [
+    ...fetchedGroqModels.filter(m => m.vision),
+    ...GROQ_VISION_MODELS.filter(def => !fetchedGroqModels.some(f => f.id === def.id))
+  ];
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-3 sm:p-5 animate-in fade-in duration-200">
@@ -78,7 +159,7 @@ const BYOKModal = () => {
                   Zero Server Storage
                 </span>
               </div>
-              <p className="text-[11px] text-white/50">Bring Your Own Key for Google Gemini & Groq models</p>
+              <p className="text-[11px] text-white/50">Bring Your Own Key, discover live models, or enter custom models</p>
             </div>
           </div>
           <button 
@@ -100,7 +181,7 @@ const BYOKModal = () => {
             <div className="grid grid-cols-2 gap-2 p-1 bg-white/[0.04] border border-white/10 rounded-2xl">
               <button
                 type="button"
-                onClick={() => { setActiveTab(PROVIDERS.GOOGLE); setTestResult(null); }}
+                onClick={() => { setActiveTab(PROVIDERS.GOOGLE); setTestResult(null); setFetchStatus(null); }}
                 className={`py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
                   activeTab === PROVIDERS.GOOGLE
                     ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30 shadow-sm'
@@ -116,7 +197,7 @@ const BYOKModal = () => {
 
               <button
                 type="button"
-                onClick={() => { setActiveTab(PROVIDERS.GROQ); setTestResult(null); }}
+                onClick={() => { setActiveTab(PROVIDERS.GROQ); setTestResult(null); setFetchStatus(null); }}
                 className={`py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
                   activeTab === PROVIDERS.GROQ
                     ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-sm'
@@ -132,7 +213,7 @@ const BYOKModal = () => {
             </div>
           </div>
 
-          {/* Active Tab Configuration */}
+          {/* GOOGLE GEMINI TAB */}
           {activeTab === PROVIDERS.GOOGLE && (
             <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.02] border border-white/10 space-y-4">
               <div className="flex items-center justify-between">
@@ -153,7 +234,7 @@ const BYOKModal = () => {
                 </a>
               </div>
 
-              {/* Key Input */}
+              {/* Gemini Key Input */}
               <div>
                 <label className="block text-[11px] font-medium text-white/70 mb-1.5">
                   Gemini API Key
@@ -175,52 +256,129 @@ const BYOKModal = () => {
                   </button>
                 </div>
                 <p className="text-[10px] text-white/40 mt-1">
-                  Obtained free of cost with a personal Google account via Google AI Studio.
+                  Stored purely in your local browser storage. Never transmitted to third-party backends.
                 </p>
               </div>
 
-              {/* Model Selector */}
+              {/* Gemini Model Selection & Custom Typing */}
               <div>
-                <label className="block text-[11px] font-medium text-white/70 mb-1.5">
-                  Default Gemini Model
-                </label>
-                <select
-                  value={googleModel}
-                  onChange={(e) => setGoogleModel(e.target.value)}
-                  className="w-full bg-[#121622] border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 transition-colors select-dark"
-                >
-                  {GOOGLE_MODELS.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} — {m.badge}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11px] font-medium text-white/70">
+                    Gemini Model ID
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomGoogle(!isCustomGoogle)}
+                    className="text-[10px] font-semibold text-sky-400 hover:text-sky-300 flex items-center gap-1 transition-colors"
+                  >
+                    <i className={`fas ${isCustomGoogle ? 'fa-list' : 'fa-pen-to-square'} text-[9px]`}></i>
+                    <span>{isCustomGoogle ? 'Pick from List' : 'Type Custom Model'}</span>
+                  </button>
+                </div>
+
+                {isCustomGoogle ? (
+                  <div className="space-y-1">
+                    <input
+                      type="text"
+                      value={googleModel}
+                      onChange={(e) => setGoogleModel(e.target.value)}
+                      placeholder="e.g. gemini-2.5-pro, gemini-2.5-flash, gemini-exp-1206..."
+                      className="w-full bg-white/5 border border-sky-500/40 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-white/30 font-mono focus:outline-none focus:border-sky-400 transition-colors"
+                    />
+                    <p className="text-[10px] text-sky-300/80">
+                      ✍️ Custom Mode: Enter any newly released Gemini model ID supported by your account.
+                    </p>
+                  </div>
+                ) : (
+                  <select
+                    value={googleModel}
+                    onChange={(e) => {
+                      if (e.target.value === '__custom__') {
+                        setIsCustomGoogle(true);
+                      } else {
+                        setGoogleModel(e.target.value);
+                      }
+                    }}
+                    className="w-full bg-[#121622] border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-sky-500 transition-colors select-dark"
+                  >
+                    {fetchedGoogleModels.length > 0 && (
+                      <optgroup label="Live Discovered Models (From Your API Key)">
+                        {fetchedGoogleModels.map(m => (
+                          <option key={m.id} value={m.id}>
+                            {m.name || m.id} (Discovered)
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    <optgroup label="Recommended Gemini Models">
+                      {GOOGLE_MODELS.map(m => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} — {m.badge}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <option value="__custom__">✍️ Enter custom model ID by typing...</option>
+                  </select>
+                )}
               </div>
 
-              {/* Test Connection Button */}
-              <div className="flex items-center gap-2 pt-1">
+              {/* Action Buttons: Test Connection & Fetch Live Models */}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => handleTestKey(PROVIDERS.GOOGLE)}
                   disabled={testingProvider === PROVIDERS.GOOGLE || !googleApiKey.trim()}
-                  className="apple-btn-secondary text-xs px-3.5 py-1.5 flex items-center gap-2 disabled:opacity-40"
+                  className="apple-btn-secondary text-xs px-3.5 py-1.5 flex items-center gap-1.5 disabled:opacity-40"
                 >
                   {testingProvider === PROVIDERS.GOOGLE ? (
                     <>
                       <i className="fas fa-spinner fa-spin text-xs"></i>
-                      <span>Verifying Key...</span>
+                      <span>Verifying...</span>
                     </>
                   ) : (
                     <>
-                      <i className="fas fa-plug text-xs"></i>
+                      <i className="fas fa-plug text-xs text-sky-400"></i>
                       <span>Test Connection</span>
                     </>
                   )}
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleFetchLiveModels(PROVIDERS.GOOGLE)}
+                  disabled={isFetchingModels || !googleApiKey.trim()}
+                  className="apple-btn-secondary text-xs px-3.5 py-1.5 flex items-center gap-1.5 disabled:opacity-40 text-sky-300 border-sky-500/25 hover:bg-sky-500/10"
+                  title="Query Google API for the live list of models available to your account"
+                >
+                  {isFetchingModels ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin text-xs"></i>
+                      <span>Discovering...</span>
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-radar text-xs text-sky-400"></i>
+                      <span>Ping & Fetch Live Models</span>
+                    </>
+                  )}
+                </button>
               </div>
+
+              {/* Live Fetch Feedback */}
+              {fetchStatus && fetchStatus.provider === PROVIDERS.GOOGLE && (
+                <div className={`p-2.5 rounded-xl text-xs flex items-center gap-2 ${
+                  fetchStatus.success
+                    ? 'bg-sky-500/10 border border-sky-500/25 text-sky-200'
+                    : 'bg-rose-500/10 border border-rose-500/25 text-rose-200'
+                }`}>
+                  <i className={`fas ${fetchStatus.success ? 'fa-circle-check text-sky-400' : 'fa-circle-exclamation text-rose-400'}`}></i>
+                  <span>{fetchStatus.message}</span>
+                </div>
+              )}
             </div>
           )}
 
+          {/* GROQ TAB */}
           {activeTab === PROVIDERS.GROQ && (
             <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.02] border border-white/10 space-y-4">
               <div className="flex items-center justify-between">
@@ -263,71 +421,191 @@ const BYOKModal = () => {
                   </button>
                 </div>
                 <p className="text-[10px] text-white/40 mt-1">
-                  Free ultra-fast open-weight models hosted on Groq LPU inference hardware.
+                  Free ultra-fast open-weight models hosted on Groq LPU hardware.
                 </p>
               </div>
 
-              {/* Groq Text Model Selector */}
+              {/* Groq Chat Model Selector & Custom Input */}
               <div>
-                <label className="block text-[11px] font-medium text-white/70 mb-1.5">
-                  Chat & Strategist Model
-                </label>
-                <select
-                  value={groqModel}
-                  onChange={(e) => setGroqModel(e.target.value)}
-                  className="w-full bg-[#121622] border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500 transition-colors select-dark"
-                >
-                  {GROQ_TEXT_MODELS.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} — {m.badge}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11px] font-medium text-white/70">
+                    Chat & Advisor Model ID
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomGroq(!isCustomGroq)}
+                    className="text-[10px] font-semibold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors"
+                  >
+                    <i className={`fas ${isCustomGroq ? 'fa-list' : 'fa-pen-to-square'} text-[9px]`}></i>
+                    <span>{isCustomGroq ? 'Pick from List' : 'Type Custom Model'}</span>
+                  </button>
+                </div>
+
+                {isCustomGroq ? (
+                  <div className="space-y-1">
+                    <input
+                      type="text"
+                      value={groqModel}
+                      onChange={(e) => setGroqModel(e.target.value)}
+                      placeholder="e.g. llama-3.3-70b-versatile, deepseek-r1-distill-llama-70b..."
+                      className="w-full bg-white/5 border border-amber-500/40 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-white/30 font-mono focus:outline-none focus:border-amber-400 transition-colors"
+                    />
+                    <p className="text-[10px] text-amber-300/80">
+                      ✍️ Custom Mode: Enter any active Groq chat model ID.
+                    </p>
+                  </div>
+                ) : (
+                  <select
+                    value={groqModel}
+                    onChange={(e) => {
+                      if (e.target.value === '__custom__') {
+                        setIsCustomGroq(true);
+                      } else {
+                        setGroqModel(e.target.value);
+                      }
+                    }}
+                    className="w-full bg-[#121622] border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500 transition-colors select-dark"
+                  >
+                    {fetchedGroqModels.length > 0 && (
+                      <optgroup label="Live Discovered Groq Models">
+                        {groqTextList.map(m => (
+                          <option key={m.id} value={m.id}>
+                            {m.name} ({m.ownedBy || 'Groq'})
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    <optgroup label="Recommended Groq Models">
+                      {GROQ_TEXT_MODELS.map(m => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} — {m.badge}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <option value="__custom__">✍️ Enter custom model ID by typing...</option>
+                  </select>
+                )}
               </div>
 
-              {/* Groq Vision Model Selector */}
+              {/* Groq Vision Model Selector & Custom Input */}
               <div>
-                <label className="block text-[11px] font-medium text-white/70 mb-1.5">
-                  Vision Model (For Screenshots & OCR)
-                </label>
-                <select
-                  value={groqVisionModel}
-                  onChange={(e) => setGroqVisionModel(e.target.value)}
-                  className="w-full bg-[#121622] border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500 transition-colors select-dark"
-                >
-                  {GROQ_VISION_MODELS.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} — {m.badge}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11px] font-medium text-white/70">
+                    Vision Model ID (For Screenshots & OCR)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomGroqVision(!isCustomGroqVision)}
+                    className="text-[10px] font-semibold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors"
+                  >
+                    <i className={`fas ${isCustomGroqVision ? 'fa-list' : 'fa-pen-to-square'} text-[9px]`}></i>
+                    <span>{isCustomGroqVision ? 'Pick from List' : 'Type Custom Model'}</span>
+                  </button>
+                </div>
+
+                {isCustomGroqVision ? (
+                  <div className="space-y-1">
+                    <input
+                      type="text"
+                      value={groqVisionModel}
+                      onChange={(e) => setGroqVisionModel(e.target.value)}
+                      placeholder="e.g. llama-3.2-11b-vision-preview, llama-3.2-90b-vision-preview..."
+                      className="w-full bg-white/5 border border-amber-500/40 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-white/30 font-mono focus:outline-none focus:border-amber-400 transition-colors"
+                    />
+                    <p className="text-[10px] text-amber-300/80">
+                      ✍️ Custom Mode: Enter any multimodal model supported by Groq.
+                    </p>
+                  </div>
+                ) : (
+                  <select
+                    value={groqVisionModel}
+                    onChange={(e) => {
+                      if (e.target.value === '__custom__') {
+                        setIsCustomGroqVision(true);
+                      } else {
+                        setGroqVisionModel(e.target.value);
+                      }
+                    }}
+                    className="w-full bg-[#121622] border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500 transition-colors select-dark"
+                  >
+                    {groqVisionList.length > 0 && (
+                      <optgroup label="Discovered Vision Models">
+                        {groqVisionList.map(m => (
+                          <option key={m.id} value={m.id}>
+                            {m.name} (Vision)
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    <optgroup label="Recommended Vision Models">
+                      {GROQ_VISION_MODELS.map(m => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} — {m.badge}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <option value="__custom__">✍️ Enter custom vision model ID by typing...</option>
+                  </select>
+                )}
               </div>
 
-              {/* Test Connection Button */}
-              <div className="flex items-center gap-2 pt-1">
+              {/* Action Buttons: Test Connection & Fetch Live Models */}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => handleTestKey(PROVIDERS.GROQ)}
                   disabled={testingProvider === PROVIDERS.GROQ || !groqApiKey.trim()}
-                  className="apple-btn-secondary text-xs px-3.5 py-1.5 flex items-center gap-2 disabled:opacity-40"
+                  className="apple-btn-secondary text-xs px-3.5 py-1.5 flex items-center gap-1.5 disabled:opacity-40"
                 >
                   {testingProvider === PROVIDERS.GROQ ? (
                     <>
                       <i className="fas fa-spinner fa-spin text-xs"></i>
-                      <span>Verifying Key...</span>
+                      <span>Verifying...</span>
                     </>
                   ) : (
                     <>
-                      <i className="fas fa-plug text-xs"></i>
+                      <i className="fas fa-plug text-xs text-amber-400"></i>
                       <span>Test Connection</span>
                     </>
                   )}
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleFetchLiveModels(PROVIDERS.GROQ)}
+                  disabled={isFetchingModels || !groqApiKey.trim()}
+                  className="apple-btn-secondary text-xs px-3.5 py-1.5 flex items-center gap-1.5 disabled:opacity-40 text-amber-300 border-amber-500/25 hover:bg-amber-500/10"
+                  title="Query Groq API for live available models"
+                >
+                  {isFetchingModels ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin text-xs"></i>
+                      <span>Discovering...</span>
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-radar text-xs text-amber-400"></i>
+                      <span>Ping & Fetch Live Models</span>
+                    </>
+                  )}
+                </button>
               </div>
+
+              {/* Live Fetch Feedback */}
+              {fetchStatus && fetchStatus.provider === PROVIDERS.GROQ && (
+                <div className={`p-2.5 rounded-xl text-xs flex items-center gap-2 ${
+                  fetchStatus.success
+                    ? 'bg-amber-500/10 border border-amber-500/25 text-amber-200'
+                    : 'bg-rose-500/10 border border-rose-500/25 text-rose-200'
+                }`}>
+                  <i className={`fas ${fetchStatus.success ? 'fa-circle-check text-amber-400' : 'fa-circle-exclamation text-rose-400'}`}></i>
+                  <span>{fetchStatus.message}</span>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Test feedback */}
+          {/* Test connection feedback */}
           {testResult && (
             <div
               className={`p-3 rounded-2xl text-xs flex items-start gap-2.5 animate-in fade-in duration-150 ${
@@ -338,7 +616,7 @@ const BYOKModal = () => {
             >
               <i className={`fas ${testResult.success ? 'fa-check-circle text-emerald-400' : 'fa-exclamation-triangle text-rose-400'} text-sm mt-0.5`}></i>
               <div className="flex-1">
-                <p className="font-semibold">{testResult.success ? 'API Key Validated Successfully' : 'Connection Failed'}</p>
+                <p className="font-semibold">{testResult.success ? 'API Key Validated & Ping Succeeded' : 'Connection Failed'}</p>
                 <p className="text-[11px] opacity-80 mt-0.5">{testResult.message || testResult.error}</p>
               </div>
             </div>
@@ -351,7 +629,7 @@ const BYOKModal = () => {
               <span>Zero-Intermediary Privacy</span>
             </div>
             <p className="leading-relaxed">
-              Your API keys are stored solely in your personal browser's LocalStorage and sent directly to Google / Groq via official encrypted endpoints. Punch.In operates in pure BYOK mode with no external tracking or token harvesting.
+              Your API keys and model configurations are stored locally in your browser. Any custom or discovered model is pinged directly via official HTTPS endpoints.
             </p>
           </div>
         </div>
@@ -374,7 +652,7 @@ const BYOKModal = () => {
             {saveSuccess ? (
               <>
                 <i className="fas fa-check"></i>
-                <span>Saved!</span>
+                <span>Saved & Applied!</span>
               </>
             ) : (
               <>
